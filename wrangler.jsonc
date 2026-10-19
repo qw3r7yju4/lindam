@@ -1,7 +1,9 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lindam",
-  "compatibility_date": "2026-10-19",
+  "compatibility_date": "2026-10-17",
   "assets": {
-    "directory": "./"
+    "directory": "./public"   // match whatever dummies uses
+    // "not_found_handling": "none"  // or "single-page-application" / "404-page"
   }
 }
