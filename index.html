@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linda Milewski, LCSW | Compassionate Psychotherapy & Counseling</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter for clean UI & Playfair Display for warm editorial headings -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        sage: {
+                            50: '#f4f7f4',
+                            100: '#e4ebe4',
+                            200: '#c9d8c9',
+                            300: '#a3bca4',
+                            400: '#769a78',
+                            500: '#557c58',
+                            600: '#416244',
+                            700: '#354f37',
+                            800: '#2c402e',
+                            900: '#253527',
+                        },
+                        sand: {
+                            50: '#fdfcfa',
+                            100: '#f8f5ef',
+                            200: '#f0eadd',
+                            300: '#e4d9c5',
+                            400: '#d3c1a3',
+                        },
+                        clay: {
+                            500: '#b87d64',
+                            600: '#a0664e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #fdfcfa;
+            color: #2c352d;
+        }
+        .hero-pattern {
+            background-image: radial-gradient(#769a78 0.75px, transparent 0.75px), radial-gradient(#769a78 0.75px, #fdfcfa 0.75px);
+            background-size: 32px 32px;
+            background-position: 0 0, 16px 16px;
+        }
+        .editable-highlight {
+            outline: 2px dashed #769a78;
+            outline-offset: 6px;
+            background-color: rgba(228, 235, 228, 0.35);
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-sage-200 selection:text-sage-900">
+
+    <!-- Top Announcement / Crisis & Availability Banner -->
+    <div class="bg-sage-800 text-sand-100 text-xs sm:text-sm py-2.5 px-4">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Currently accepting new clients for in-person &amp; telehealth sessions</span>
+            </div>
+            <div class="flex items-center gap-4 text-sage-200">
+                <span>Referred by a friend? Mention their name for a complimentary intake call</span>
+                <a href="#contact" class="underline hover:text-white font-medium">Book Now &rarr;</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-sand-50/95 backdrop-blur-md border-b border-sand-200 transition-all">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <!-- Brand Identity -->
+            <a href="#home" class="flex items-center gap-3 group focus:outline-none">
+                <div class="w-10 h-10 rounded-xl bg-sage-600 text-white flex items-center justify-center shadow-sm group-hover:bg-sage-700 transition">
+                    <i data-lucide="sprout" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <!-- EDITABLE: Replace Therapist Name & Title here -->
+                    <span class="font-serif text-xl font-semibold text-sage-900 tracking-tight block leading-none" id="nav-therapist-name">Linda Milewski, LCSW</span>
+                    <span class="text-xs text-sage-600 tracking-wider uppercase font-medium mt-1 block">Holistic Psychotherapy</span>
+                </div>
+            </a>
+
+            <!-- Desktop Navigation Links -->
+            <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-sage-800">
+                <a href="#home" class="hover:text-sage-600 transition py-2">Home</a>
+                <a href="#services" class="hover:text-sage-600 transition py-2">Services &amp; Rates</a>
+                <a href="#about" class="hover:text-sage-600 transition py-2 flex items-center gap-1.5">
+                    <span>About Me</span>
+                    <span class="text-[10px] bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full font-semibold">Customizable</span>
+                </a>
+                <a href="#testimonials" class="hover:text-sage-600 transition py-2">Client Words</a>
+                <a href="#contact" class="hover:text-sage-600 transition py-2">Contact</a>
+            </nav>
+
+            <!-- Action Buttons -->
+            <div class="hidden md:flex items-center gap-3">
+                <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i data-lucide="calendar-heart" class="w-4 h-4"></i>
+                    <span>Free 15-Min Consult</span>
+                </a>
+            </div>
+
+            <!-- Mobile Hamburger Button -->
+            <button id="mobile-menu-btn" aria-label="Toggle Menu" class="md:hidden p-2.5 rounded-xl text-sage-800 hover:bg-sand-200 focus:outline-none">
+                <i data-lucide="menu" class="w-6 h-6" id="menu-icon-open"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden bg-sand-50 border-b border-sand-200 px-4 pt-2 pb-6 space-y-3">
+            <a href="#home" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Home</a>
+            <a href="#services" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Services &amp; Rates</a>
+            <a href="#about" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">About Me</a>
+            <a href="#testimonials" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Client Words</a>
+            <a href="#contact" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Contact &amp; Email Form</a>
+            <div class="pt-2">
+                <a href="#contact" onclick="prefillConsultation()" class="mobile-nav-link w-full bg-sage-600 text-white py-3 px-4 rounded-xl font-medium text-center block shadow-sm">
+                    Request Free 15-Min Consultation
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- HERO SECTION -->
+        <section id="home" class="relative overflow-hidden py-16 sm:py-24 lg:py-28 bg-gradient-to-b from-sand-100/80 via-sand-50 to-sand-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+                    
+                    <!-- Left Column: Intro & CTAs -->
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sage-100/90 border border-sage-200 text-sage-800 text-xs font-medium">
+                            <i data-lucide="heart-handshake" class="w-4 h-4 text-sage-600"></i>
+                            <span>Warm, confidential care built on trust &amp; personal connection</span>
+                        </div>
+
+                        <h1 class="font-serif text-4xl sm:text-5xl lg:text-[3.4rem] text-sage-900 font-semibold leading-[1.15] tracking-tight">
+                            A quiet, grounded space to untangle life’s heavy moments.
+                        </h1>
+
+                        <p class="text-base sm:text-lg text-sage-800/85 leading-relaxed max-w-2xl">
+                            Whether you found me through a trusted friend’s recommendation or a local community notice, you are welcome here. Together, we work at your pace to navigate anxiety, relationship shifts, burnout, and personal growth with practical tools and genuine empathy.
+                        </p>
+
+                        <!-- Primary Call to Actions -->
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
+                            <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-7 py-4 rounded-xl font-medium text-center shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5">
+                                <span>Book a Free 15-Min Consultation</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                            <a href="#services" class="bg-white hover:bg-sand-100 text-sage-800 border border-sand-300 px-6 py-4 rounded-xl font-medium text-center transition flex items-center justify-center gap-2">
+                                <span>Explore Services</span>
+                            </a>
+                        </div>
+
+                        <!-- Trust / Word-of-Mouth Badges -->
+                        <div class="pt-6 border-t border-sand-200 grid grid-cols-3 gap-4 text-xs sm:text-sm text-sage-700">
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">100% Confidential</strong>
+                                    <span>HIPAA-compliant private practice</span>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="video" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">Flexible Format</strong>
+                                    <span>In-office &amp; secure video therapy</span>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="sparkles" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">Personal Care</strong>
+                                    <span>No clinic waitlists or bots</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Calming Imagery & Quick Card -->
+                    <div class="lg:col-span-5 relative">
+                        <div class="relative mx-auto max-w-md lg:max-w-none">
+                            <!-- Decorative backdrop card -->
+                            <div class="absolute -inset-3 bg-sage-200/50 rounded-3xl transform rotate-2 -z-10"></div>
+                            
+                            <div class="bg-white p-3 rounded-3xl shadow-xl border border-sand-200">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80" 
+                                    onerror="this.src='https://placehold.co/600x700/e4ebe4/354f37?text=Warm+Therapy+Space'"
+                                    alt="Sunlit calming therapy office and welcoming environment" 
+                                    class="w-full h-[380px] sm:h-[430px] object-cover rounded-2xl"
+                                >
+                                <!-- Floating Overlay Card -->
+                                <div class="mt-3 p-4 bg-sand-50 rounded-2xl border border-sand-200 flex items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-sage-100 text-sage-700 flex items-center justify-center shrink-0">
+                                            <i data-lucide="phone-call" class="w-5 h-5"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-medium text-sage-600 uppercase tracking-wider">Not sure where to start?</p>
+                                            <p class="text-sm font-semibold text-sage-900">Let's chat for 15 minutes—free of charge.</p>
+                                        </div>
+                                    </div>
+                                    <a href="#contact" class="text-xs font-semibold bg-sage-600 text-white px-3.5 py-2 rounded-xl hover:bg-sage-700 transition shrink-0">
+                                        Reach Out
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVICES SECTION -->
+        <section id="services" class="py-20 bg-white border-y border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Section Header -->
+                <div class="text-center max-w-3xl mx-auto mb-14">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-600 bg-sage-50 px-3.5 py-1.5 rounded-full border border-sage-200">How We Can Work Together</span>
+                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4"> Specialized Therapy Offerings</h2>
+                    <p class="text-sage-700 mt-3 text-base sm:text-lg">
+                        Every person’s story is unique. I tailor evidence-based modalities—including CBT, Attachment-Based Therapy, and Mindfulness—to fit your goals.
+                    </p>
+                </div>
+
+                <!-- Services Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    <!-- Service 1: Individual Therapy -->
+                    <div class="bg-sand-50 rounded-2xl p-7 border border-sand-200 hover:border-sage-300 transition shadow-sm hover:shadow-md flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-100 text-sage-700 flex items-center justify-center mb-5">
+                                <i data-lucide="user-check" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-sage-900 mb-2">Individual Psychotherapy</h3>
+                            <p class="text-sage-700 text-sm leading-relaxed mb-5">
+                                One-on-one sessions focused on self-discovery, healing emotional wounds, building healthy boundaries, and breaking unhelpful patterns in a judgment-free space.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-800 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Self-esteem &amp; identity exploration</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Emotional regulation &amp; boundary setting</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Trauma-informed, compassionate pacing</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sand-200 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-600 block">50-Minute Session</span>
+                                <span class="text-lg font-semibold text-sage-900">$150 <span class="text-xs font-normal text-sage-600">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Individual Psychotherapy')" class="text-sm font-medium text-sage-700 hover:text-sage-900 bg-sage-100 hover:bg-sage-200 px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Service 2: Anxiety & Stress Management -->
+                    <div class="bg-sage-900 text-sand-50 rounded-2xl p-7 border border-sage-800 shadow-md flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-4 right-4 bg-sage-700 text-sage-100 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                            Most Requested
+                        </div>
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-800 text-sage-200 flex items-center justify-center mb-5">
+                                <i data-lucide="wind" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-white mb-2">Anxiety &amp; Burnout Recovery</h3>
+                            <p class="text-sage-200 text-sm leading-relaxed mb-5">
+                                For high-achievers, caregivers, and overwhelmed minds experiencing racing thoughts, perfectionism, chronic stress, or nervous system exhaustion.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-100 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Practical nervous-system grounding tools</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Overcoming people-pleasing &amp; perfectionism</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Panic, worry, and sleep support</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sage-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-300 block">50-Minute Session</span>
+                                <span class="text-lg font-semibold text-white">$150 <span class="text-xs font-normal text-sage-300">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Anxiety & Burnout Recovery')" class="text-sm font-medium text-sage-900 bg-sand-100 hover:bg-white px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Service 3: Life Transitions & Relationships -->
+                    <div class="bg-sand-50 rounded-2xl p-7 border border-sand-200 hover:border-sage-300 transition shadow-sm hover:shadow-md flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-100 text-sage-700 flex items-center justify-center mb-5">
+                                <i data-lucide="compass" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-sage-900 mb-2">Life Transitions &amp; Relationships</h3>
+                            <p class="text-sage-700 text-sm leading-relaxed mb-5">
+                                Compassionate guidance through career shifts, parenthood, relocation, grief, breakups, or deepening communication with your partner.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-800 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Navigating grief, loss &amp; new chapters</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Couples &amp; relational communication</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Clarity and confidence in decision-making</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sand-200 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-600 block">50–75 Minute Session</span>
+                                <span class="text-lg font-semibold text-sage-900">$150–$185 <span class="text-xs font-normal text-sage-600">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Life Transitions & Relationships')" class="text-sm font-medium text-sage-700 hover:text-sage-900 bg-sage-100 hover:bg-sage-200 px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Insurance / Sliding Scale Note -->
+                <div class="mt-10 bg-sand-100/90 border border-sand-200 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="flex items-start sm:items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-sage-200 text-sage-800 flex items-center justify-center shrink-0">
+                            <i data-lucide="file-text" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sage-900 text-sm sm:text-base">Insurance, Superbills &amp; Sliding Scale Availability</h4>
+                            <p class="text-xs sm:text-sm text-sage-700">
+                                Out-of-network superbills are provided monthly for easy insurance reimbursement. HSA/FSA cards accepted. A limited number of sliding-scale spots are reserved for community referrals.
+                            </p>
+                        </div>
+                    </div>
+                    <a href="#contact" class="text-sm font-semibold text-sage-800 hover:text-sage-950 underline shrink-0">
+                        Ask about rates &rarr;
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT ME SECTION (WITH EASY PLACEHOLDERS & INTERACTIVE BIO CUSTOMIZER) -->
+        <section id="about" class="py-20 bg-sand-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Owner Helper Toolbar: Allows the therapist/owner to test editing their bio live on the page -->
+                <div class="mb-10 bg-sage-50 border border-sage-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 rounded-lg bg-sage-600 text-white mt-0.5">
+                            <i data-lucide="pen-tool" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-sage-700">Website Owner Tool • Ready for Your "About Me" Content</span>
+                            <p class="text-xs sm:text-sm text-sage-800 mt-0.5">
+                                You can replace the placeholder text in the code later, <strong>or click "Customize Bio Text" right now</strong> to type/paste your real bio and preview how it looks!
+                            </p>
+                        </div>
+                    </div>
+                    <button id="toggle-edit-btn" onclick="toggleBioEditMode()" class="bg-white hover:bg-sage-100 text-sage-800 border border-sage-300 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition flex items-center gap-2 shrink-0">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        <span id="edit-btn-label">Customize Bio Text</span>
+                    </button>
+                </div>
+
+                <!-- Main About Me Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                    
+                    <!-- Left Column: Portrait Placeholder & Credentials Card -->
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="bg-white p-4 rounded-3xl shadow-md border border-sand-200 relative group">
+                            <!-- =================================================================
+                                 PHOTO PLACEHOLDER: Replace the `src` URL below with your own headshot
+                                 ================================================================= -->
+                            <img 
+                                id="about-photo"
+                                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80" 
+                                onerror="this.src='https://placehold.co/600x720/e4ebe4/354f37?text=Your+Headshot+Here'"
+                                alt="Therapist Portrait Placeholder" 
+                                class="w-full h-[420px] object-cover object-top rounded-2xl"
+                            >
+                            <div class="mt-4 text-center">
+                                <h3 id="about-name" class="font-serif text-2xl font-semibold text-sage-900" data-editable="true">
+                                    Linda Milewski, LCSW
+                                </h3>
+                                <p id="about-pronouns" class="text-xs text-sage-600 font-medium mt-0.5" data-editable="true">
+                                    Licensed Marriage &amp; Family Therapist • (She/Her)
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Credentials & Quick Facts Box (Easy to edit) -->
+                        <div class="bg-white p-6 rounded-2xl border border-sand-200 shadow-sm space-y-4">
+                            <h4 class="font-serif text-lg font-semibold text-sage-900 flex items-center gap-2">
+                                <i data-lucide="award" class="w-5 h-5 text-sage-600"></i>
+                                <span>Credentials &amp; Training</span>
+                            </h4>
+                            <!-- =================================================================
+                                 CREDENTIALS PLACEHOLDER: Replace list items with your degrees/licenses
+                                 ================================================================= -->
+                            <ul id="about-credentials" class="space-y-2.5 text-sm text-sage-800" data-editable="true">
+                                <li class="flex items-start gap-2.5">
+                                    <span class="text-sage-600 font-bold">•</span>
+                                    <span><strong>Education:</strong> [Insert Degree, e.g., M.A. in Clinical Psychology, University Name]</span>
+                                </li>
+                                <li class="flex items-start gap-2.5">
+                                    <span class="text-sage-600 font-bold">•</span>
+                                    <span><strong>License:</strong> [Insert State &amp; License #, e.g., Licensed Therapist #12345]</span>
+                                </li>
+                                <li class="flex items-start gap-2.5">
+                                    <span class="text-sage-600 font-bold">•</span>
+                                    <span><strong>Experience:</strong> [Insert Years, e.g., 8+ years supporting adults and couples]</span>
+                                </li>
+                                <li class="flex items-start gap-2.5">
+                                    <span class="text-sage-600 font-bold">•</span>
+                                    <span><strong>Special Training:</strong> [e.g., CBT, EMDR, Somatic Experiencing, Mindfulness]</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Bio Paragraphs & Philosophy -->
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-sage-600">
+                            <span>About Me</span>
+                            <span class="w-8 h-px bg-sage-400"></span>
+                        </div>
+
+                        <!-- =================================================================
+                             ABOUT ME HEADLINE PLACEHOLDER
+                             ================================================================= -->
+                        <h2 id="about-headline" class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold leading-snug" data-editable="true">
+                            Hi, I’m Linda. I believe therapy works best when it feels like a genuine human conversation.
+                        </h2>
+
+                        <!-- =================================================================
+                             ABOUT ME BIO BODY PLACEHOLDER: Paste your paragraphs here later!
+                             ================================================================= -->
+                        <div id="about-bio-body" class="space-y-4 text-sage-800 leading-relaxed text-base" data-editable="true">
+                            <p>
+                                <strong>[Paragraph 1: Your Warm Introduction &amp; Why You Became a Therapist]</strong> — Welcome! This section is ready for your personal story. You might share what drew you to counseling, who you love working with, and how you create a safe environment for clients reaching out for the first time.
+                            </p>
+                            <p>
+                                <strong>[Paragraph 2: Your Therapeutic Approach &amp; What Sessions Feel Like]</strong> — Describe what a typical session with you looks like. For example: <em>"My style is warm, collaborative, and grounded. Rather than just nodding along, I offer gentle curiosity, honest reflections, and practical takeaways you can actually use between our sessions."</em>
+                            </p>
+                            <p>
+                                <strong>[Paragraph 3: A Personal Touch / Life Outside the Office]</strong> — Clients referred by word-of-mouth love feeling connected to who you are as a person. Feel free to mention a few grounding details—such as enjoying morning coffee on the porch, hiking local trails, reading, or spending time with family and pets.
+                            </p>
+                        </div>
+
+                        <!-- Core Values / Philosophy Pillars -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+                            <div class="bg-white p-5 rounded-2xl border border-sand-200">
+                                <div class="flex items-center gap-2.5 font-semibold text-sage-900 mb-1.5">
+                                    <i data-lucide="feather" class="w-4 h-4 text-sage-600"></i>
+                                    <span id="pillar-1-title" data-editable="true">At Your Own Pace</span>
+                                </div>
+                                <p id="pillar-1-desc" class="text-xs sm:text-sm text-sage-700" data-editable="true">
+                                    You never have to share more than you’re ready for. We build trust step by step.
+                                </p>
+                            </div>
+                            <div class="bg-white p-5 rounded-2xl border border-sand-200">
+                                <div class="flex items-center gap-2.5 font-semibold text-sage-900 mb-1.5">
+                                    <i data-lucide="lightbulb" class="w-4 h-4 text-sage-600"></i>
+                                    <span id="pillar-2-title" data-editable="true">Insight + Action</span>
+                                </div>
+                                <p id="pillar-2-desc" class="text-xs sm:text-sm text-sage-700" data-editable="true">
+                                    Combining deep emotional understanding with real-world coping strategies.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Callout Quote / Word-of-Mouth Welcome -->
+                        <blockquote class="bg-sage-100/70 border-l-4 border-sage-600 p-5 rounded-r-2xl italic text-sage-900 font-serif text-lg">
+                            "Many of my clients come to me through word-of-mouth from friends, family, or local doctors. It is my highest honor to be trusted with your care."
+                        </blockquote>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- WORD OF MOUTH & COMMUNITY REFERRALS SECTION -->
+        <section id="testimonials" class="py-16 bg-white border-t border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-2xl mx-auto mb-12">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-600">Word of Mouth &amp; Community</span>
+                    <h2 class="font-serif text-3xl text-sage-900 font-semibold mt-2">Why Clients &amp; Colleagues Refer Friends Here</h2>
+                    <p class="text-sm text-sage-700 mt-2">
+                        To protect client confidentiality, the reflections below represent anonymized feedback from past clients and local healthcare partners.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200 flex flex-col justify-between">
+                        <p class="text-sage-800 text-sm italic leading-relaxed mb-4">
+                            "A close friend gave me Linda's card when I was going through a painful divorce. From our very first 15-minute phone call, I felt heard without ever feeling judged."
+                        </p>
+                        <div class="flex items-center gap-2 text-xs font-semibold text-sage-700">
+                            <span class="w-2 h-2 rounded-full bg-sage-500"></span>
+                            <span>Individual Therapy Client • Referred by a Friend</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200 flex flex-col justify-between">
+                        <p class="text-sage-800 text-sm italic leading-relaxed mb-4">
+                            "I saw her local neighborhood advertisement after months of feeling burned out at work. Learning how to set boundaries has completely changed my daily peace of mind."
+                        </p>
+                        <div class="flex items-center gap-2 text-xs font-semibold text-sage-700">
+                            <span class="w-2 h-2 rounded-full bg-sage-500"></span>
+                            <span>Anxiety &amp; Burnout Client • Local Ad</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200 flex flex-col justify-between">
+                        <p class="text-sage-800 text-sm italic leading-relaxed mb-4">
+                            "As a local primary care physician, I regularly refer patients seeking a warm, responsive therapist who actually returns calls promptly and treats people with genuine care."
+                        </p>
+                        <div class="flex items-center gap-2 text-xs font-semibold text-sage-700">
+                            <span class="w-2 h-2 rounded-full bg-sage-500"></span>
+                            <span>Local Healthcare Colleague</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DEDICATED CONTACT PAGE / SECTION WITH INTERACTIVE EMAIL ME FORM -->
+        <section id="contact" class="py-20 bg-gradient-to-b from-sand-100 to-sand-50 border-t border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Contact Header -->
+                <div class="text-center max-w-3xl mx-auto mb-14">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-700 bg-sage-100 px-3.5 py-1.5 rounded-full">Get In Touch</span>
+                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4">Contact &amp; Email Me</h2>
+                    <p class="text-sage-700 mt-3 text-base sm:text-lg">
+                        Taking the first step can feel intimidating. Reach out directly by phone, email, or use the secure message form below—I personally respond within 1 business day.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+                    
+                    <!-- Left Column: Direct Contact Details, Office Location & Hours -->
+                    <div class="lg:col-span-5 space-y-6">
+                        
+                        <!-- Direct Contact Card -->
+                        <div class="bg-white rounded-3xl p-7 border border-sand-200 shadow-sm space-y-6">
+                            <div>
+                                <h3 class="font-serif text-2xl font-semibold text-sage-900">Direct Contact Info</h3>
+                                <p class="text-xs sm:text-sm text-sage-600 mt-1">Click the phone number or email below to copy it to your clipboard.</p>
+                            </div>
+
+                            <!-- Phone Item -->
+                            <div class="flex items-start gap-4 p-3.5 rounded-2xl bg-sand-50 border border-sand-200 hover:border-sage-300 transition">
+                                <div class="w-11 h-11 rounded-xl bg-sage-600 text-white flex items-center justify-center shrink-0">
+                                    <i data-lucide="phone" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Phone &amp; Confidential Voicemail</span>
+                                    <!-- EDITABLE: Replace Phone Number -->
+                                    <p id="contact-phone" class="text-base font-semibold text-sage-900 mt-0.5">(555) 234-8910</p>
+                                    <span class="text-xs text-sage-600">Call or text for scheduling inquiries</span>
+                                </div>
+                                <button onclick="copyContactText('(555) 234-8910', 'Phone number')" class="text-xs bg-white hover:bg-sage-50 text-sage-700 border border-sand-300 px-3 py-1.5 rounded-lg font-medium transition shrink-0">
+                                    Copy
+                                </button>
+                            </div>
+
+                            <!-- Email Item -->
+                            <div class="flex items-start gap-4 p-3.5 rounded-2xl bg-sand-50 border border-sand-200 hover:border-sage-300 transition">
+                                <div class="w-11 h-11 rounded-xl bg-sage-600 text-white flex items-center justify-center shrink-0">
+                                    <i data-lucide="mail" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Direct Email</span>
+                                    <!-- EDITABLE: Replace Email Address -->
+                                    <p id="contact-email" class="text-sm sm:text-base font-semibold text-sage-900 mt-0.5 truncate">lmilewski@something.com</p>
+                                    <span class="text-xs text-sage-600">Responses within 24 business hours</span>
+                                </div>
+                                <button onclick="copyContactText('lmilewski@something.com', 'Email address')" class="text-xs bg-white hover:bg-sage-50 text-sage-700 border border-sand-300 px-3 py-1.5 rounded-lg font-medium transition shrink-0">
+                                    Copy
+                                </button>
+                            </div>
+
+                            <!-- Office Location Item -->
+                            <div class="flex items-start gap-4 p-3.5 rounded-2xl bg-sand-50 border border-sand-200">
+                                <div class="w-11 h-11 rounded-xl bg-sage-100 text-sage-700 flex items-center justify-center shrink-0">
+                                    <i data-lucide="map-pin" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Office Location &amp; Telehealth</span>
+                                    <!-- EDITABLE: Replace Office Address -->
+                                    <p class="text-sm font-semibold text-sage-900 mt-0.5">420 Willow Creek Way, Suite 204</p>
+                                    <p class="text-xs text-sage-700">Oakridge, ST 94010 • Free private parking</p>
+                                    <span class="inline-block mt-1.5 text-[11px] font-medium bg-sage-100 text-sage-800 px-2.5 py-0.5 rounded-full">
+                                        In-Person &amp; Statewide Telehealth
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Practice Hours -->
+                            <div class="pt-4 border-t border-sand-200">
+                                <h4 class="text-xs font-semibold uppercase tracking-wider text-sage-600 mb-3 flex items-center gap-1.5">
+                                    <i data-lucide="clock" class="w-4 h-4 text-sage-600"></i>
+                                    <span>Office Hours</span>
+                                </h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between text-sage-800">
+                                        <span>Monday – Thursday</span>
+                                        <span class="font-medium text-sage-900">9:00 AM – 6:00 PM</span>
+                                    </div>
+                                    <div class="flex justify-between text-sage-800">
+                                        <span>Friday (Telehealth Only)</span>
+                                        <span class="font-medium text-sage-900">9:00 AM – 2:00 PM</span>
+                                    </div>
+                                    <div class="flex justify-between text-sage-500">
+                                        <span>Saturday – Sunday</span>
+                                        <span>Closed</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Copy Notification Toast (Hidden by default) -->
+                        <div id="copy-toast" class="hidden bg-sage-800 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg flex items-center justify-between">
+                            <span id="copy-toast-text">Copied to clipboard!</span>
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-300"></i>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Interactive "Email Me" Contact Form -->
+                    <div class="lg:col-span-7">
+                        <div class="bg-white rounded-3xl p-7 sm:p-9 border border-sand-200 shadow-md">
+                            <div class="flex items-center justify-between border-b border-sand-200 pb-5 mb-6">
+                                <div>
+                                    <h3 class="font-serif text-2xl font-semibold text-sage-900">Send Me an Email</h3>
+                                    <p class="text-xs sm:text-sm text-sage-600 mt-1">
+                                        Fill out the form below to ask a question or request your free 15-minute consultation.
+                                    </p>
+                                </div>
+                                <div class="hidden sm:flex w-11 h-11 rounded-2xl bg-sage-50 text-sage-700 items-center justify-center border border-sage-200">
+                                    <i data-lucide="send" class="w-5 h-5"></i>
+                                </div>
+                            </div>
+
+                            <!-- Contact Form -->
+                            <form id="email-contact-form" novalidate class="space-y-5">
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <!-- Full Name -->
+                                    <div>
+                                        <label for="client-name" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            Your Name <span class="text-rose-600">*</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            id="client-name" 
+                                            required
+                                            placeholder="e.g., Alex Morgan" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                        <p id="err-name" class="hidden text-xs text-rose-600 mt-1">Please enter your name.</p>
+                                    </div>
+
+                                    <!-- Email Address -->
+                                    <div>
+                                        <label for="client-email" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            Your Email Address <span class="text-rose-600">*</span>
+                                        </label>
+                                        <input 
+                                            type="email" 
+                                            id="client-email" 
+                                            required
+                                            placeholder="alex@example.com" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                        <p id="err-email" class="hidden text-xs text-rose-600 mt-1">Please enter a valid email address.</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <!-- Phone Number (Optional) -->
+                                    <div>
+                                        <label for="client-phone" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            Phone Number <span class="text-sage-500 font-normal">(Optional)</span>
+                                        </label>
+                                        <input 
+                                            type="tel" 
+                                            id="client-phone" 
+                                            placeholder="(555) 000-0000" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                    </div>
+
+                                    <!-- Preferred Contact Method -->
+                                    <div>
+                                        <label for="contact-preference" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            Preferred Reply Method
+                                        </label>
+                                        <select 
+                                            id="contact-preference" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                            <option value="Email">Email Reply</option>
+                                            <option value="Phone Call">Phone Call</option>
+                                            <option value="Text Message">Text Message</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <!-- Service Interested In -->
+                                    <div>
+                                        <label for="service-interest" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            How Can I Support You?
+                                        </label>
+                                        <select 
+                                            id="service-interest" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                            <option value="Free 15-Minute Consultation">Free 15-Minute Consultation</option>
+                                            <option value="Individual Psychotherapy">Individual Psychotherapy</option>
+                                            <option value="Anxiety & Burnout Recovery">Anxiety &amp; Burnout Recovery</option>
+                                            <option value="Life Transitions & Relationships">Life Transitions &amp; Relationships</option>
+                                            <option value="General Question">General Question</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Referral Source (Tailored for Word of Mouth & Ads!) -->
+                                    <div>
+                                        <label for="referral-source" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                            How Did You Hear About Me?
+                                        </label>
+                                        <select 
+                                            id="referral-source" 
+                                            class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                        >
+                                            <option value="Word of Mouth / Friend or Family">Word of Mouth (Friend or Family)</option>
+                                            <option value="Local Advertisement / Flyer">Local Advertisement / Community Board</option>
+                                            <option value="Doctor or Healthcare Referral">Doctor or Healthcare Colleague</option>
+                                            <option value="Online Search / Social Media">Online Search / Social Media</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Message Body -->
+                                <div>
+                                    <label for="client-message" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
+                                        Your Message <span class="text-rose-600">*</span>
+                                    </label>
+                                    <textarea 
+                                        id="client-message" 
+                                        rows="4" 
+                                        required
+                                        placeholder="Share a brief note about what brings you here, or let me know a few days/times that work well for a 15-minute phone consultation..."
+                                        class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
+                                    ></textarea>
+                                    <p id="err-message" class="hidden text-xs text-rose-600 mt-1">Please include a brief message so I know how to help.</p>
+                                    <p class="text-[11px] text-sage-500 mt-1.5 flex items-center gap-1">
+                                        <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                                        <span>Please keep sensitive medical details brief until we establish care.</span>
+                                    </p>
+                                </div>
+
+                                <!-- Submit & Direct Mailto Fallback -->
+                                <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                                    <button 
+                                        type="submit" 
+                                        id="submit-btn"
+                                        class="bg-sage-600 hover:bg-sage-700 text-white font-medium px-7 py-3.5 rounded-xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 text-sm"
+                                    >
+                                        <i data-lucide="mail-check" class="w-4 h-4"></i>
+                                        <span>Send Email Message</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onclick="openDefaultMailClient()"
+                                        class="text-xs text-sage-600 hover:text-sage-900 underline text-center sm:text-right"
+                                    >
+                                        Or open directly in your email app (Mail / Outlook)
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Form Submission Confirmation Box (Replaces form or appears clearly on submit) -->
+                            <div id="form-success-box" class="hidden mt-6 bg-sage-50 border border-sage-300 rounded-2xl p-6 text-sage-900 space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-sage-600 text-white flex items-center justify-center shrink-0">
+                                        <i data-lucide="check" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-serif text-xl font-semibold text-sage-900">Thank you for reaching out!</h4>
+                                        <p class="text-xs text-sage-700" id="success-timestamp">Message logged just now</p>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-sage-800 leading-relaxed" id="success-summary">
+                                    Your message has been prepared. I review all new client inquiries personally and will get back to you within 1 business day.
+                                </p>
+                                <div class="pt-2 flex flex-wrap gap-3">
+                                    <button onclick="openDefaultMailClient()" class="text-xs font-semibold bg-sage-600 text-white px-4 py-2 rounded-xl hover:bg-sage-700 transition">
+                                        Send Copy via Default Email App
+                                    </button>
+                                    <button onclick="resetContactForm()" class="text-xs font-semibold bg-white text-sage-700 border border-sage-300 px-4 py-2 rounded-xl hover:bg-sand-100 transition">
+                                        Send Another Message
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-sage-900 text-sand-200 py-12 border-t border-sage-800">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-sage-800">
+                <div class="md:col-span-6 space-y-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-sage-600 text-white flex items-center justify-center">
+                            <i data-lucide="sprout" class="w-4 h-4"></i>
+                        </div>
+                        <span class="font-serif text-xl font-semibold text-white">Linda Milewski, LCSW</span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-sage-300 max-w-md leading-relaxed">
+                        Compassionate private practice psychotherapy welcoming word-of-mouth referrals and local community members for individual, anxiety, and life-transition counseling.
+                    </p>
+                </div>
+
+                <div class="md:col-span-3 space-y-2 text-sm">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-sage-400">Quick Navigation</h4>
+                    <ul class="space-y-1.5">
+                        <li><a href="#home" class="hover:text-white transition">Home</a></li>
+                        <li><a href="#services" class="hover:text-white transition">Services &amp; Rates</a></li>
+                        <li><a href="#about" class="hover:text-white transition">About Me</a></li>
+                        <li><a href="#contact" class="hover:text-white transition">Contact &amp; Email Form</a></li>
+                    </ul>
+                </div>
+
+                <div class="md:col-span-3 space-y-2 text-xs text-sage-300">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-sage-400">Crisis Resources</h4>
+                    <p class="leading-relaxed">
+                        If you are experiencing a mental health emergency, please call or text <strong>988</strong> (Suicide &amp; Crisis Lifeline) or go to your nearest emergency room.
+                    </p>
+                </div>
+            </div>
+
+            <div class="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-sage-400 gap-4">
+                <p>&copy; <span id="current-year">2026</span> Linda Milewski, LCSW Psychotherapy. All rights reserved.</p>
+                <p>Designed for calm, accessible client connection.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive JavaScript -->
+    <script>
+        // Initialize Lucide icons on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+        });
+
+        // Mobile Navigation Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+            });
+        });
+
+        // Helper: Select a specific service in the Contact Form and scroll smoothly to it
+        function selectServiceInForm(serviceName) {
+            const selectEl = document.getElementById('service-interest');
+            if (selectEl) {
+                selectEl.value = serviceName;
+            }
+            const contactSection = document.getElementById('contact');
+            if (contactSection) {
+                contactSection.scrollIntoView({ behavior: 'smooth' });
+            }
+            setTimeout(() => {
+                document.getElementById('client-name').focus();
+            }, 600);
+        }
+
+        // Helper: Prefill for Free 15-Min Consultation CTA
+        function prefillConsultation() {
+            const selectEl = document.getElementById('service-interest');
+            if (selectEl) {
+                selectEl.value = 'Free 15-Minute Consultation';
+            }
+        }
+
+        // Helper: Copy Phone or Email to Clipboard (iFrame safe using execCommand)
+        function copyContactText(textToCopy, label) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showCopyToast(`${label} (${textToCopy}) copied to clipboard!`);
+            } catch (err) {
+                showCopyToast(`Copy manual: ${textToCopy}`);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function showCopyToast(message) {
+            const toast = document.getElementById('copy-toast');
+            const toastText = document.getElementById('copy-toast-text');
+            toastText.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
+        // Interactive "About Me" Live Bio Customizer Mode
+        let isBioEditMode = false;
+        function toggleBioEditMode() {
+            isBioEditMode = !isBioEditMode;
+            const editableElements = document.querySelectorAll('[data-editable="true"]');
+            const btnLabel = document.getElementById('edit-btn-label');
+            const toggleBtn = document.getElementById('toggle-edit-btn');
+
+            editableElements.forEach(el => {
+                el.contentEditable = isBioEditMode ? "true" : "false";
+                if (isBioEditMode) {
+                    el.classList.add('editable-highlight');
+                } else {
+                    el.classList.remove('editable-highlight');
+                }
+            });
+
+            if (isBioEditMode) {
+                btnLabel.textContent = "Save Bio Changes";
+                toggleBtn.classList.remove('bg-white', 'text-sage-800');
+                toggleBtn.classList.add('bg-sage-600', 'text-white');
+                // Focus the main bio body so the user sees they can type immediately
+                document.getElementById('about-bio-body').focus();
+            } else {
+                btnLabel.textContent = "Customize Bio Text";
+                toggleBtn.classList.add('bg-white', 'text-sage-800');
+                toggleBtn.classList.remove('bg-sage-600', 'text-white');
+                // Sync navbar name if the user edited their name in the About section
+                const editedName = document.getElementById('about-name').textContent.trim();
+                if (editedName) {
+                    document.getElementById('nav-therapist-name').textContent = editedName.split(',')[0] + ', LMFT';
+                }
+            }
+        }
+
+        // Contact Form Validation & Submission Handler
+        const contactForm = document.getElementById('email-contact-form');
+        let lastSubmittedData = null;
+
+        contactForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const nameInput = document.getElementById('client-name');
+            const emailInput = document.getElementById('client-email');
+            const phoneInput = document.getElementById('client-phone');
+            const prefInput = document.getElementById('contact-preference');
+            const serviceInput = document.getElementById('service-interest');
+            const referralInput = document.getElementById('referral-source');
+            const messageInput = document.getElementById('client-message');
+
+            const errName = document.getElementById('err-name');
+            const errEmail = document.getElementById('err-email');
+            const errMessage = document.getElementById('err-message');
+
+            // Reset errors
+            errName.classList.add('hidden');
+            errEmail.classList.add('hidden');
+            errMessage.classList.add('hidden');
+
+            let isValid = true;
+
+            if (!nameInput.value.trim()) {
+                errName.classList.remove('hidden');
+                isValid = false;
+            }
+
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(emailInput.value.trim())) {
+                errEmail.classList.remove('hidden');
+                isValid = false;
+            }
+
+            if (!messageInput.value.trim()) {
+                errMessage.classList.remove('hidden');
+                isValid = false;
+            }
+
+            if (!isValid) return;
+
+            // Save data for mailto or summary
+            lastSubmittedData = {
+                name: nameInput.value.trim(),
+                email: emailInput.value.trim(),
+                phone: phoneInput.value.trim() || 'Not provided',
+                preference: prefInput.value,
+                service: serviceInput.value,
+                referral: referralInput.value,
+                message: messageInput.value.trim()
+            };
+
+            // Display friendly confirmation message
+            const successBox = document.getElementById('form-success-box');
+            const summaryText = document.getElementById('success-summary');
+            const timestampText = document.getElementById('success-timestamp');
+
+            timestampText.textContent = `Sent by ${lastSubmittedData.name} (${lastSubmittedData.email}) • Preferred reply: ${lastSubmittedData.preference}`;
+            summaryText.innerHTML = `Thank you, <strong>${escapeHtml(lastSubmittedData.name)}</strong>! Your inquiry regarding <strong>${escapeHtml(lastSubmittedData.service)}</strong> (referred via <em>${escapeHtml(lastSubmittedData.referral)}</em>) has been received. I will reach out to you shortly.`;
+
+            contactForm.classList.add('hidden');
+            successBox.classList.remove('hidden');
+        });
+
+        function resetContactForm() {
+            contactForm.reset();
+            contactForm.classList.remove('hidden');
+            document.getElementById('form-success-box').classList.add('hidden');
+        }
+
+        // Opens the user's default email client pre-populated with the form fields
+        function openDefaultMailClient() {
+            const therapistEmail = document.getElementById('contact-email').textContent.trim();
+            const name = lastSubmittedData ? lastSubmittedData.name : (document.getElementById('client-name').value.trim() || 'Prospective Client');
+            const service = lastSubmittedData ? lastSubmittedData.service : document.getElementById('service-interest').value;
+            const referral = lastSubmittedData ? lastSubmittedData.referral : document.getElementById('referral-source').value;
+            const phone = lastSubmittedData ? lastSubmittedData.phone : (document.getElementById('client-phone').value.trim() || 'Not provided');
+            const message = lastSubmittedData ? lastSubmittedData.message : (document.getElementById('client-message').value.trim() || 'Hi, I would like to learn more about scheduling a consultation.');
+
+            const subject = encodeURIComponent(`Therapy Inquiry: ${service} - ${name}`);
+            const body = encodeURIComponent(
+                `Name: ${name}\n` +
+                `Phone: ${phone}\n` +
+                `Interested In: ${service}\n` +
+                `Referred By: ${referral}\n\n` +
+                `Message:\n${message}`
+            );
+
+            window.location.href = `mailto:${therapistEmail}?subject=${subject}&body=${body}`;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[m];
+            });
+        }
+    </script>
+</body>
+</html>
