@@ -93,7 +93,6 @@
                     <i data-lucide="sprout" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <!-- EDITABLE: Replace Therapist Name & Title here -->
                     <span class="font-serif text-xl font-semibold text-sage-900 tracking-tight block leading-none" id="nav-therapist-name">Linda Milewski, LCSW</span>
                     <span class="text-xs text-sage-600 tracking-wider uppercase font-medium mt-1 block">Holistic Psychotherapy</span>
                 </div>
@@ -242,7 +241,7 @@
                 <!-- Section Header -->
                 <div class="text-center max-w-3xl mx-auto mb-14">
                     <span class="text-xs font-semibold uppercase tracking-widest text-sage-600 bg-sage-50 px-3.5 py-1.5 rounded-full border border-sage-200">How We Can Work Together</span>
-                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4"> Specialized Therapy Offerings</h2>
+                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4">Specialized Therapy Offerings</h2>
                     <p class="text-sage-700 mt-3 text-base sm:text-lg">
                         Every person’s story is unique. I tailor evidence-based modalities—including CBT, Attachment-Based Therapy, and Mindfulness—to fit your goals.
                     </p>
@@ -420,7 +419,7 @@
                                 id="about-photo"
                                 src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80" 
                                 onerror="this.src='https://placehold.co/600x720/e4ebe4/354f37?text=Your+Headshot+Here'"
-                                alt="Therapist Portrait Placeholder" 
+                                alt="Linda Milewski, LCSW Portrait Placeholder" 
                                 class="w-full h-[420px] object-cover object-top rounded-2xl"
                             >
                             <div class="mt-4 text-center">
@@ -428,7 +427,7 @@
                                     Linda Milewski, LCSW
                                 </h3>
                                 <p id="about-pronouns" class="text-xs text-sage-600 font-medium mt-0.5" data-editable="true">
-                                    Licensed Marriage &amp; Family Therapist • (She/Her)
+                                    Licensed Clinical Social Worker • (She/Her)
                                 </p>
                             </div>
                         </div>
@@ -445,11 +444,11 @@
                             <ul id="about-credentials" class="space-y-2.5 text-sm text-sage-800" data-editable="true">
                                 <li class="flex items-start gap-2.5">
                                     <span class="text-sage-600 font-bold">•</span>
-                                    <span><strong>Education:</strong> [Insert Degree, e.g., M.A. in Clinical Psychology, University Name]</span>
+                                    <span><strong>Education:</strong> [Insert Degree, e.g., M.S.W. in Clinical Social Work, University Name]</span>
                                 </li>
                                 <li class="flex items-start gap-2.5">
                                     <span class="text-sage-600 font-bold">•</span>
-                                    <span><strong>License:</strong> [Insert State &amp; License #, e.g., Licensed Therapist #12345]</span>
+                                    <span><strong>License:</strong> Licensed Clinical Social Worker (LCSW) [Insert State &amp; License #]</span>
                                 </li>
                                 <li class="flex items-start gap-2.5">
                                     <span class="text-sage-600 font-bold">•</span>
@@ -482,7 +481,7 @@
                              ================================================================= -->
                         <div id="about-bio-body" class="space-y-4 text-sage-800 leading-relaxed text-base" data-editable="true">
                             <p>
-                                <strong>[Paragraph 1: Your Warm Introduction &amp; Why You Became a Therapist]</strong> — Welcome! This section is ready for your personal story. You might share what drew you to counseling, who you love working with, and how you create a safe environment for clients reaching out for the first time.
+                                <strong>[Paragraph 1: Your Warm Introduction &amp; Why You Became a Therapist]</strong> — Welcome! This section is ready for your personal story. You might share what drew you to clinical social work and counseling, who you love working with, and how you create a safe environment for clients reaching out for the first time.
                             </p>
                             <p>
                                 <strong>[Paragraph 2: Your Therapeutic Approach &amp; What Sessions Feel Like]</strong> — Describe what a typical session with you looks like. For example: <em>"My style is warm, collaborative, and grounded. Rather than just nodding along, I offer gentle curiosity, honest reflections, and practical takeaways you can actually use between our sessions."</em>
@@ -569,7 +568,7 @@
             </div>
         </section>
 
-        <!-- DEDICATED CONTACT PAGE / SECTION WITH INTERACTIVE EMAIL ME FORM -->
+        <!-- DEDICATED CONTACT PAGE / SECTION WITH FORMSPREE EMAIL FORM -->
         <section id="contact" class="py-20 bg-gradient-to-b from-sand-100 to-sand-50 border-t border-sand-200">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
@@ -672,7 +671,7 @@
                         </div>
                     </div>
 
-                    <!-- Right Column: Interactive "Email Me" Contact Form -->
+                    <!-- Right Column: Interactive "Email Me" Contact Form (Formspree Integrated) -->
                     <div class="lg:col-span-7">
                         <div class="bg-white rounded-3xl p-7 sm:p-9 border border-sand-200 shadow-md">
                             <div class="flex items-center justify-between border-b border-sand-200 pb-5 mb-6">
@@ -687,8 +686,8 @@
                                 </div>
                             </div>
 
-                            <!-- Contact Form -->
-                            <form id="email-contact-form" novalidate class="space-y-5">
+                            <!-- Contact Form configured for Formspree -->
+                            <form id="email-contact-form" action="https://formspree.io/f/xgaobpow" method="POST" novalidate class="space-y-5">
                                 
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                     <!-- Full Name -->
@@ -699,6 +698,7 @@
                                         <input 
                                             type="text" 
                                             id="client-name" 
+                                            name="name"
                                             required
                                             placeholder="e.g., Alex Morgan" 
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
@@ -714,6 +714,7 @@
                                         <input 
                                             type="email" 
                                             id="client-email" 
+                                            name="email"
                                             required
                                             placeholder="alex@example.com" 
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
@@ -731,6 +732,7 @@
                                         <input 
                                             type="tel" 
                                             id="client-phone" 
+                                            name="phone"
                                             placeholder="(555) 000-0000" 
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
                                         >
@@ -743,6 +745,7 @@
                                         </label>
                                         <select 
                                             id="contact-preference" 
+                                            name="preferred_reply_method"
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
                                         >
                                             <option value="Email">Email Reply</option>
@@ -760,6 +763,7 @@
                                         </label>
                                         <select 
                                             id="service-interest" 
+                                            name="service_interest"
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
                                         >
                                             <option value="Free 15-Minute Consultation">Free 15-Minute Consultation</option>
@@ -777,6 +781,7 @@
                                         </label>
                                         <select 
                                             id="referral-source" 
+                                            name="referral_source"
                                             class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-500 focus:bg-white transition"
                                         >
                                             <option value="Word of Mouth / Friend or Family">Word of Mouth (Friend or Family)</option>
@@ -795,6 +800,7 @@
                                     </label>
                                     <textarea 
                                         id="client-message" 
+                                        name="message"
                                         rows="4" 
                                         required
                                         placeholder="Share a brief note about what brings you here, or let me know a few days/times that work well for a 15-minute phone consultation..."
@@ -807,15 +813,20 @@
                                     </p>
                                 </div>
 
+                                <!-- Form Error Banner (Hidden unless network/Formspree error occurs) -->
+                                <div id="form-error-box" class="hidden bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm rounded-xl p-4">
+                                    There was an issue sending your message through the form. Please try again or click the direct email link below.
+                                </div>
+
                                 <!-- Submit & Direct Mailto Fallback -->
                                 <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                                     <button 
                                         type="submit" 
                                         id="submit-btn"
-                                        class="bg-sage-600 hover:bg-sage-700 text-white font-medium px-7 py-3.5 rounded-xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 text-sm"
+                                        class="bg-sage-600 hover:bg-sage-700 disabled:opacity-60 text-white font-medium px-7 py-3.5 rounded-xl shadow-sm hover:shadow transition flex items-center justify-center gap-2 text-sm"
                                     >
                                         <i data-lucide="mail-check" class="w-4 h-4"></i>
-                                        <span>Send Email Message</span>
+                                        <span id="submit-btn-text">Send Email Message</span>
                                     </button>
                                     <button 
                                         type="button"
@@ -827,7 +838,7 @@
                                 </div>
                             </form>
 
-                            <!-- Form Submission Confirmation Box (Replaces form or appears clearly on submit) -->
+                            <!-- Form Submission Confirmation Box -->
                             <div id="form-success-box" class="hidden mt-6 bg-sage-50 border border-sage-300 rounded-2xl p-6 text-sage-900 space-y-3">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-sage-600 text-white flex items-center justify-center shrink-0">
@@ -835,16 +846,13 @@
                                     </div>
                                     <div>
                                         <h4 class="font-serif text-xl font-semibold text-sage-900">Thank you for reaching out!</h4>
-                                        <p class="text-xs text-sage-700" id="success-timestamp">Message logged just now</p>
+                                        <p class="text-xs text-sage-700" id="success-timestamp">Message sent just now</p>
                                     </div>
                                 </div>
                                 <p class="text-sm text-sage-800 leading-relaxed" id="success-summary">
-                                    Your message has been prepared. I review all new client inquiries personally and will get back to you within 1 business day.
+                                    Your message has been sent directly to Linda Milewski, LCSW. I review all new client inquiries personally and will get back to you within 1 business day.
                                 </p>
                                 <div class="pt-2 flex flex-wrap gap-3">
-                                    <button onclick="openDefaultMailClient()" class="text-xs font-semibold bg-sage-600 text-white px-4 py-2 rounded-xl hover:bg-sage-700 transition">
-                                        Send Copy via Default Email App
-                                    </button>
                                     <button onclick="resetContactForm()" class="text-xs font-semibold bg-white text-sage-700 border border-sage-300 px-4 py-2 rounded-xl hover:bg-sand-100 transition">
                                         Send Another Message
                                     </button>
@@ -994,7 +1002,6 @@
                 btnLabel.textContent = "Save Bio Changes";
                 toggleBtn.classList.remove('bg-white', 'text-sage-800');
                 toggleBtn.classList.add('bg-sage-600', 'text-white');
-                // Focus the main bio body so the user sees they can type immediately
                 document.getElementById('about-bio-body').focus();
             } else {
                 btnLabel.textContent = "Customize Bio Text";
@@ -1003,16 +1010,17 @@
                 // Sync navbar name if the user edited their name in the About section
                 const editedName = document.getElementById('about-name').textContent.trim();
                 if (editedName) {
-                    document.getElementById('nav-therapist-name').textContent = editedName.split(',')[0] + ', LMFT';
+                    document.getElementById('nav-therapist-name').textContent = editedName.includes(',') ? editedName : editedName + ', LCSW';
                 }
             }
         }
 
-        // Contact Form Validation & Submission Handler
+        // Contact Form Validation & Formspree Submission Handler
+        const FORMSPREE_ENDPOINT = "https://formspree.io/f/xgaobpow";
         const contactForm = document.getElementById('email-contact-form');
         let lastSubmittedData = null;
 
-        contactForm.addEventListener('submit', function(e) {
+        contactForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const nameInput = document.getElementById('client-name');
@@ -1026,11 +1034,15 @@
             const errName = document.getElementById('err-name');
             const errEmail = document.getElementById('err-email');
             const errMessage = document.getElementById('err-message');
+            const errorBox = document.getElementById('form-error-box');
+            const submitBtn = document.getElementById('submit-btn');
+            const submitBtnText = document.getElementById('submit-btn-text');
 
             // Reset errors
             errName.classList.add('hidden');
             errEmail.classList.add('hidden');
             errMessage.classList.add('hidden');
+            errorBox.classList.add('hidden');
 
             let isValid = true;
 
@@ -1052,7 +1064,7 @@
 
             if (!isValid) return;
 
-            // Save data for mailto or summary
+            // Save data for mailto fallback or summary
             lastSubmittedData = {
                 name: nameInput.value.trim(),
                 email: emailInput.value.trim(),
@@ -1063,22 +1075,48 @@
                 message: messageInput.value.trim()
             };
 
-            // Display friendly confirmation message
-            const successBox = document.getElementById('form-success-box');
-            const summaryText = document.getElementById('success-summary');
-            const timestampText = document.getElementById('success-timestamp');
+            // Disable button & show sending state
+            submitBtn.disabled = true;
+            submitBtnText.textContent = "Sending...";
 
-            timestampText.textContent = `Sent by ${lastSubmittedData.name} (${lastSubmittedData.email}) • Preferred reply: ${lastSubmittedData.preference}`;
-            summaryText.innerHTML = `Thank you, <strong>${escapeHtml(lastSubmittedData.name)}</strong>! Your inquiry regarding <strong>${escapeHtml(lastSubmittedData.service)}</strong> (referred via <em>${escapeHtml(lastSubmittedData.referral)}</em>) has been received. I will reach out to you shortly.`;
+            try {
+                const formData = new FormData(contactForm);
+                formData.append('_subject', `New Therapy Inquiry: ${lastSubmittedData.service} - ${lastSubmittedData.name}`);
 
-            contactForm.classList.add('hidden');
-            successBox.classList.remove('hidden');
+                const response = await fetch(FORMSPREE_ENDPOINT, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const successBox = document.getElementById('form-success-box');
+                    const summaryText = document.getElementById('success-summary');
+                    const timestampText = document.getElementById('success-timestamp');
+
+                    timestampText.textContent = `Sent by ${lastSubmittedData.name} (${lastSubmittedData.email}) • Preferred reply: ${lastSubmittedData.preference}`;
+                    summaryText.innerHTML = `Thank you, <strong>${escapeHtml(lastSubmittedData.name)}</strong>! Your inquiry regarding <strong>${escapeHtml(lastSubmittedData.service)}</strong> (referred via <em>${escapeHtml(lastSubmittedData.referral)}</em>) has been sent to Linda Milewski, LCSW. I will reach out to you shortly.`;
+
+                    contactForm.classList.add('hidden');
+                    successBox.classList.remove('hidden');
+                } else {
+                    errorBox.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorBox.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtnText.textContent = "Send Email Message";
+            }
         });
 
         function resetContactForm() {
             contactForm.reset();
             contactForm.classList.remove('hidden');
             document.getElementById('form-success-box').classList.add('hidden');
+            document.getElementById('form-error-box').classList.add('hidden');
         }
 
         // Opens the user's default email client pre-populated with the form fields
