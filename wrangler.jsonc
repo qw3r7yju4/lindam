@@ -3,7 +3,7 @@
   "name": "lindam",
   "compatibility_date": "2026-10-17",
   "assets": {
-    "directory": "./public"   // match whatever dummies uses
+    "directory": "./"   // match whatever dummies uses
     // "not_found_handling": "none"  // or "single-page-application" / "404-page"
   }
 }
