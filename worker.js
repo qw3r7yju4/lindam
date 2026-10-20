@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
-const AUTH_PASSWORD_ITERATIONS = 120000;
+const AUTH_PASSWORD_ITERATIONS = 100000;
 const AUTH_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const AUTH_SESSION_COOKIE = "linda_portal_session";
 
