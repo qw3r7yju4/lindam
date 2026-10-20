@@ -277,13 +277,24 @@ function getAdminStoreStub(env) {
   return env.CHAT_ROOM.get(adminStoreId);
 }
 
+function decodeQuotedPrintable(text) {
+  const unfolded = text.replace(/=\r?\n/g, "");
+  return unfolded.replace(/((?:=[\da-f]{2})+)/gi, (encodedBytes) => {
+    const bytes = new Uint8Array(encodedBytes.length / 3);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(encodedBytes.slice(i * 3 + 1, i * 3 + 3), 16);
+    }
+    return new TextDecoder("utf-8").decode(bytes);
+  });
+}
+
 // Helper: Extract plain text from raw MIME email without external dependencies
 function extractPlainTextFromMime(rawEmailText) {
   if (!rawEmailText) return "";
   // Split headers and body
   const parts = rawEmailText.split(/\r?\n\r?\n/);
   if (parts.length < 2) return rawEmailText.slice(0, 1000);
-  const bodyContent = parts.slice(1).join("\n\n");
+  const bodyContent = decodeQuotedPrintable(parts.slice(1).join("\n\n"));
   // Strip HTML tags and MIME boundary noise for a clean preview
   return bodyContent
     .replace(/--[^\r\n]+/g, "")
