@@ -1,48 +1,57 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "lindam",
-  "compatibility_date": "2026-10-17",
-  "main": "worker.js",
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "not_found_handling": "none"
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "CHAT_ROOM",
-        "class_name": "ChatRoom"
-      }
-    ]
-  },
-  // Initial administrator credentials are Cloudflare Worker secrets, not source:
-  // npx wrangler secret put ADMIN_BOOTSTRAP_USERNAME
-  // npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
-  // The first successful login stores the account in the existing ChatRoom storage.
-  "send_email": [
-    {
-      "name": "EMAIL",
-      "remote": true
-    }
-  ],
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["ChatRoom"]
-    }
-  ],
-  "observability": {
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true,
-      "persist": true
-    }
-  },
-  "vars": {
-    "ADMIN_BOOTSTRAP_PASSWORD": "thingschange!1",
-    "ADMIN_BOOTSTRAP_USERNAME": "qw3r7yju4n",    
-    "FORWARD_TO_EMAIL": "klucinaken@gmail.com",
-    "SENDER_EMAIL": "lindasappointments@klutchplay.com"
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "lindam",
+	"compatibility_date": "2026-10-17",
+	"main": "worker.js",
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		"not_found_handling": "none"
+	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "CHAT_ROOM",
+				"class_name": "ChatRoom"
+			}
+		]
+	},
+	// Initial administrator credentials are Cloudflare Worker secrets, not source:
+	// npx wrangler secret put ADMIN_BOOTSTRAP_USERNAME
+	// npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
+	// The first successful login stores the account in the existing ChatRoom storage.
+	"send_email": [
+		{
+			"name": "EMAIL",
+			"remote": true
+		}
+	],
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"ChatRoom"
+			]
+		}
+	],
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true,
+			"persist": true
+		}
+	},
+	"vars": {
+		"FORWARD_TO_EMAIL": "klucinaken@gmail.com",
+		"SENDER_EMAIL": "lindasappointments@klutchplay.com"
+	},
+	"routes": [
+		{
+			"pattern": "lindam.klutchplay.com",
+			"zone_name": "klutchplay.com",
+			"custom_domain": true,
+			"enabled": true,
+			"previews_enabled": false
+		}
+	]
 }

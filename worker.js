@@ -101,6 +101,7 @@ export class ChatRoom extends DurableObject {
       }
 
       let users = (await this.ctx.storage.get("auth:users")) || [];
+      let bootstrappedUser = false;
       if (users.length === 0) {
         const bootstrapUsername = typeof body.bootstrapUsername === "string"
           ? body.bootstrapUsername.trim().toLowerCase()
@@ -134,13 +135,15 @@ export class ChatRoom extends DurableObject {
           passwordIterations: AUTH_PASSWORD_ITERATIONS,
         };
         users = [admin];
-        await this.ctx.storage.put("auth:users", users);
+        bootstrappedUser = true;
       }
 
       const user = users.find((item) => item.username === username && item.active);
       const salt = user ? hexToBytes(user.salt) : new Uint8Array(16);
       const iterations = user?.passwordIterations || AUTH_PASSWORD_ITERATIONS;
-      const passwordHash = await hashPortalPassword(password.slice(0, 256), salt, iterations);
+      const passwordHash = bootstrappedUser
+        ? user.passwordHash
+        : await hashPortalPassword(password.slice(0, 256), salt, iterations);
       if (!user || password.length > 256 || !constantTimeEqual(passwordHash, user.passwordHash)) {
         rateLimit.count += 1;
         await this.ctx.storage.put(rateLimitKey, rateLimit);
@@ -150,6 +153,7 @@ export class ChatRoom extends DurableObject {
         });
       }
 
+      if (bootstrappedUser) await this.ctx.storage.put("auth:users", users);
       await this.ctx.storage.delete(rateLimitKey);
       const sessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
       const sessionHash = await hashSessionToken(sessionToken);
@@ -686,8 +690,24 @@ export default {
 
     // 1. Clinician Authentication and Staff Accounts
     if (url.pathname === "/api/login" && request.method === "POST") {
+      let credentials;
       try {
-        const credentials = await request.json();
+        credentials = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid JSON in sign-in request." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+
+      if (typeof credentials.username !== "string" || typeof credentials.password !== "string") {
+        return new Response(JSON.stringify({ error: "Enter both username and password." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+
+      try {
         const stub = getAdminStoreStub(env);
         const loginRes = await stub.fetch(new Request("https://internal/internal/auth/login", {
           method: "POST",
@@ -700,7 +720,16 @@ export default {
             clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
           }),
         }));
-        const result = await loginRes.json();
+        let result;
+        try {
+          result = await loginRes.json();
+        } catch {
+          console.error("Portal login Durable Object returned a non-JSON response:", loginRes.status);
+          return new Response(JSON.stringify({ error: "Sign-in service error. Check the Worker logs." }), {
+            status: 503,
+            headers: jsonHeaders,
+          });
+        }
         if (!loginRes.ok) {
           return new Response(JSON.stringify({ error: result.error || "Invalid username or password." }), {
             status: loginRes.status,
@@ -717,10 +746,11 @@ export default {
             },
           },
         );
-      } catch {
+      } catch (error) {
+        console.error("Portal login request failed:", error);
         return new Response(
-          JSON.stringify({ error: "Invalid request payload." }),
-          { status: 400, headers: { ...jsonHeaders, "Cache-Control": "no-store" } },
+          JSON.stringify({ error: "Sign-in service error. Check the Worker logs." }),
+          { status: 503, headers: { ...jsonHeaders, "Cache-Control": "no-store" } },
         );
       }
     }
