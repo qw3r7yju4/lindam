@@ -73,7 +73,6 @@ export default {
     return new Response("Not found", { status: 404 });
   },
 };
-signaling-client.js
 
 class SignalingClient {
   constructor() {
