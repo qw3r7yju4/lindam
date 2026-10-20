@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linda Milewski, LCSW | Compassionate Psychotherapy & Telehealth</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/tailwind.css">
     <!-- Google Fonts: Inter for clean UI & Playfair Display for warm editorial headings -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,43 +13,6 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- WebRTC Signaling Client (Cloudflare Durable Object WebSocket relay) -->
     <script src="signaling-client.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        serif: ['Playfair Display', 'serif'],
-                    },
-                    colors: {
-                        sage: {
-                            50: '#f4f7f4',
-                            100: '#e4ebe4',
-                            200: '#c9d8c9',
-                            300: '#a3bca4',
-                            400: '#769a78',
-                            500: '#557c58',
-                            600: '#416244',
-                            700: '#354f37',
-                            800: '#2c402e',
-                            900: '#253527',
-                        },
-                        sand: {
-                            50: '#fdfcfa',
-                            100: '#f8f5ef',
-                            200: '#f0eadd',
-                            300: '#e4d9c5',
-                            400: '#d3c1a3',
-                        },
-                        clay: {
-                            500: '#b87d64',
-                            600: '#a0664e',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         body {
             background-color: #fdfcfa;

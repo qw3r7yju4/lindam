@@ -3027,7 +3027,7 @@ export default {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appointment ${status} | Linda Milewski, LCSW</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/tailwind.css">
 </head>
 <body class="bg-[#f8f5ef] text-[#2c352d] min-h-screen flex items-center justify-center p-4 font-sans">
   <div class="max-w-md w-full bg-white rounded-3xl p-8 border border-[#e4d9c5] shadow-xl text-center space-y-4">
