@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Create an appointment account and request a session with Linda Milewski, LCSW.">
+    <title>Appointment Account | Linda Milewski, LCSW</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'] },
+                    colors: {
+                        sage: { 50: '#f4f7f4', 100: '#e4ebe4', 200: '#c9d8c9', 500: '#557c58', 600: '#416244', 700: '#354f37', 800: '#2c402e', 900: '#253527' },
+                        sand: { 50: '#fdfcfa', 100: '#f8f5ef', 200: '#f0eadd', 300: '#e4d9c5' }
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="min-h-screen bg-sand-50 font-sans text-sage-900">
+    <header class="border-b border-sand-200 bg-white">
+        <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <a href="index.html" class="font-serif text-lg font-semibold">Linda Milewski, LCSW</a>
+            <a href="index.html" class="text-sm font-medium text-sage-700 hover:text-sage-900">Back to website</a>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+        <div class="mb-8 max-w-2xl">
+            <p class="text-sm font-semibold uppercase tracking-wider text-sage-600">Client appointment portal</p>
+            <h1 class="mt-2 font-serif text-3xl font-semibold sm:text-4xl">Appointments, on your schedule</h1>
+            <p class="mt-3 text-sm leading-6 text-sage-700">Create an account or sign in to request an appointment and see your requests. New appointment requests are reviewed by the practice before they are confirmed.</p>
+        </div>
+
+        <div id="page-message" role="status" aria-live="polite" class="mb-5 hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+        <section id="auth-panel" class="grid gap-6 lg:grid-cols-2">
+            <form id="login-form" class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
+                <h2 class="font-serif text-2xl font-semibold">Sign in</h2>
+                <p class="mt-1 text-sm text-sage-700">Use your username or account email.</p>
+                <label class="mt-5 block text-sm font-medium" for="login-username">Username or email</label>
+                <input id="login-username" name="username" autocomplete="username" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <label class="mt-4 block text-sm font-medium" for="login-password">Password</label>
+                <input id="login-password" name="password" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <button class="mt-5 w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Sign in</button>
+                <a href="reset-password.html" class="mt-4 block text-center text-sm font-medium text-sage-700 hover:underline">Forgot your password?</a>
+            </form>
+
+            <form id="signup-form" class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
+                <h2 class="font-serif text-2xl font-semibold">Create an account</h2>
+                <p class="mt-1 text-sm text-sage-700">We’ll email you a verification code to finish signup.</p>
+                <label class="mt-5 block text-sm font-medium" for="signup-name">Full name</label>
+                <input id="signup-name" name="displayName" autocomplete="name" maxlength="80" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <label class="mt-4 block text-sm font-medium" for="signup-email">Email address</label>
+                <input id="signup-email" name="email" type="email" autocomplete="email" maxlength="254" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <label class="mt-4 block text-sm font-medium" for="signup-username">Username</label>
+                <input id="signup-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <p class="mt-1 text-xs text-sage-600">Use 3–32 letters, numbers, periods, underscores, or hyphens.</p>
+                <label class="mt-4 block text-sm font-medium" for="signup-password">Password</label>
+                <input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                <button id="signup-submit" class="mt-5 w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Email me a verification code</button>
+            </form>
+
+            <form id="verify-form" class="hidden rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7 lg:col-span-2">
+                <h2 class="font-serif text-2xl font-semibold">Verify your email</h2>
+                <p class="mt-1 text-sm text-sage-700">Enter the six-digit code sent to <span id="verification-email" class="font-semibold"></span>. The code expires after 10 minutes.</p>
+                <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <input id="verification-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-label="Six-digit verification code" class="w-full rounded-xl border border-sand-300 px-3 py-2.5 sm:max-w-xs">
+                    <button id="verify-submit" class="rounded-xl bg-sage-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sage-700">Verify and create account</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="client-panel" class="hidden space-y-6">
+            <div class="flex flex-col justify-between gap-3 rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
+                <div>
+                    <p class="text-sm text-sage-600">Signed in as</p>
+                    <h2 id="client-display-name" class="font-serif text-2xl font-semibold"></h2>
+                </div>
+                <button id="logout-button" type="button" class="rounded-xl border border-sand-300 px-4 py-2.5 text-sm font-semibold hover:bg-sand-100">Sign out</button>
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <section class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
+                    <h2 class="font-serif text-2xl font-semibold">Request an appointment</h2>
+                    <p class="mt-1 text-sm text-sage-700">Times are shown in Eastern Time. Your request is not confirmed until the practice reviews it.</p>
+                    <form id="availability-form" class="mt-5 space-y-4">
+                        <div>
+                            <label for="appointment-service" class="block text-sm font-medium">Appointment type</label>
+                            <select id="appointment-service" required class="mt-1 w-full rounded-xl border border-sand-300 bg-white px-3 py-2.5">
+                                <option>Free 15-Minute Consultation</option>
+                                <option selected>Individual Psychotherapy</option>
+                                <option>Anxiety &amp; Burnout Recovery</option>
+                                <option>Life Transitions &amp; Relationships</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="appointment-date" class="block text-sm font-medium">Date</label>
+                            <input id="appointment-date" type="date" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+                        </div>
+                        <button class="w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Find available times</button>
+                    </form>
+                    <div id="availability-results" class="mt-5 space-y-4"></div>
+                    <div id="selected-slot" class="mt-4 hidden rounded-xl bg-sage-50 p-4">
+                        <p id="selected-slot-label" class="text-sm font-medium"></p>
+                        <button id="request-appointment-button" type="button" class="mt-3 w-full rounded-xl bg-sage-700 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-800">Request this appointment</button>
+                    </div>
+                </section>
+
+                <section class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
+                    <h2 class="font-serif text-2xl font-semibold">Your appointment requests</h2>
+                    <p class="mt-1 text-sm text-sage-700">The practice will contact you after reviewing a request.</p>
+                    <div id="client-appointments" class="mt-5 space-y-3">
+                        <p class="text-sm text-sage-600">Loading your appointments…</p>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const pageMessage = document.getElementById('page-message');
+        const authPanel = document.getElementById('auth-panel');
+        const clientPanel = document.getElementById('client-panel');
+        let verificationEmail = '';
+        let selectedSlot = null;
+
+        function showMessage(message, isError = false) {
+            pageMessage.textContent = message;
+            pageMessage.className = `mb-5 rounded-xl border px-4 py-3 text-sm ${isError ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-sage-200 bg-sage-50 text-sage-800'}`;
+            pageMessage.classList.remove('hidden');
+        }
+
+        function clearMessage() {
+            pageMessage.textContent = '';
+            pageMessage.classList.add('hidden');
+        }
+
+        async function apiRequest(path, options = {}) {
+            const response = await fetch(path, {
+                ...options,
+                headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const error = new Error(data.error || 'The request could not be completed.');
+                error.status = response.status;
+                throw error;
+            }
+            return data;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            })[character]);
+        }
+
+        function easternDateString(date = new Date()) {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+            }).formatToParts(date);
+            const values = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+            return `${values.year}-${values.month}-${values.day}`;
+        }
+
+        function setDateLimits() {
+            const date = document.getElementById('appointment-date');
+            const today = easternDateString();
+            const max = new Date(`${today}T12:00:00Z`);
+            max.setUTCDate(max.getUTCDate() + 90);
+            date.min = today;
+            date.max = max.toISOString().slice(0, 10);
+            date.value = today;
+        }
+
+        async function enterClientArea(user) {
+            clearMessage();
+            authPanel.classList.add('hidden');
+            clientPanel.classList.remove('hidden');
+            document.getElementById('client-display-name').textContent = user.displayName;
+            setDateLimits();
+            await loadClientAppointments();
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = event.currentTarget.querySelector('button[type="submit"], button:not([type])');
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/client/login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: document.getElementById('login-username').value.trim(),
+                        password: document.getElementById('login-password').value,
+                    }),
+                });
+                await enterClientArea(data.user);
+            } catch (error) {
+                showMessage(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('signup-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = document.getElementById('signup-submit');
+            button.disabled = true;
+            try {
+                const payload = {
+                    displayName: document.getElementById('signup-name').value.trim(),
+                    email: document.getElementById('signup-email').value.trim(),
+                    username: document.getElementById('signup-username').value.trim(),
+                    password: document.getElementById('signup-password').value,
+                };
+                await apiRequest('/api/client-signup/request', { method: 'POST', body: JSON.stringify(payload) });
+                verificationEmail = payload.email;
+                document.getElementById('verification-email').textContent = verificationEmail;
+                document.getElementById('verify-form').classList.remove('hidden');
+                showMessage('Verification code sent. Check your email, then enter the code below.');
+                document.getElementById('verification-code').focus();
+            } catch (error) {
+                showMessage(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('verify-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearMessage();
+            const button = document.getElementById('verify-submit');
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/client-signup/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: verificationEmail,
+                        code: document.getElementById('verification-code').value.trim(),
+                    }),
+                });
+                await enterClientArea(data.user);
+            } catch (error) {
+                showMessage(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        async function loadAvailability(event) {
+            if (event) event.preventDefault();
+            clearMessage();
+            selectedSlot = null;
+            document.getElementById('selected-slot').classList.add('hidden');
+            const results = document.getElementById('availability-results');
+            results.textContent = 'Checking available times…';
+            const date = document.getElementById('appointment-date').value;
+            const service = document.getElementById('appointment-service').value;
+            try {
+                const query = new URLSearchParams({ date, service });
+                const data = await apiRequest(`/api/client/availability?${query}`);
+                if (!data.clinicians?.length) {
+                    results.textContent = 'There are no available times for this date and appointment type. Please choose another date.';
+                    return;
+                }
+                results.innerHTML = data.clinicians.map((clinician) => `
+                    <div class="rounded-xl border border-sand-200 p-4">
+                        <h3 class="text-sm font-semibold">${escapeHtml(clinician.name)}</h3>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            ${clinician.slots.map((time) => `<button type="button" class="slot-choice rounded-lg border border-sage-200 px-3 py-2 text-sm text-sage-800 hover:bg-sage-100" data-host="${escapeHtml(clinician.id)}" data-name="${escapeHtml(clinician.name)}" data-time="${escapeHtml(time)}">${escapeHtml(time)}</button>`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+                results.querySelectorAll('.slot-choice').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        selectedSlot = { hostUserId: button.dataset.host, hostName: button.dataset.name, time: button.dataset.time, date, service };
+                        document.getElementById('selected-slot-label').textContent = `${selectedSlot.service} with ${selectedSlot.hostName} on ${selectedSlot.date} at ${selectedSlot.time} Eastern Time`;
+                        document.getElementById('selected-slot').classList.remove('hidden');
+                    });
+                });
+            } catch (error) {
+                results.textContent = '';
+                showMessage(error.message, true);
+            }
+        }
+
+        document.getElementById('availability-form').addEventListener('submit', loadAvailability);
+
+        document.getElementById('request-appointment-button').addEventListener('click', async (event) => {
+            if (!selectedSlot) return;
+            clearMessage();
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+                const data = await apiRequest('/api/client/appointments', {
+                    method: 'POST',
+                    body: JSON.stringify(selectedSlot),
+                });
+                showMessage(data.notificationError
+                    ? `Your appointment request was saved. ${data.notificationError}`
+                    : 'Your appointment request was sent. It is awaiting confirmation from the practice.');
+                selectedSlot = null;
+                document.getElementById('selected-slot').classList.add('hidden');
+                document.getElementById('availability-results').textContent = '';
+                await loadClientAppointments();
+            } catch (error) {
+                showMessage(error.message, true);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        async function loadClientAppointments() {
+            const container = document.getElementById('client-appointments');
+            try {
+                const data = await apiRequest('/api/client/appointments');
+                const appointments = [...(data.appointments || [])].sort((a, b) =>
+                    `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
+                container.innerHTML = appointments.length ? appointments.map((appointment) => `
+                    <article class="rounded-xl border border-sand-200 p-4">
+                        <p class="font-semibold">${escapeHtml(appointment.service)}</p>
+                        <p class="mt-1 text-sm text-sage-700">${escapeHtml(appointment.date)} at ${escapeHtml(appointment.time)} Eastern Time</p>
+                        <p class="mt-2 inline-flex rounded-full bg-sage-100 px-2.5 py-1 text-xs font-medium text-sage-800">${escapeHtml(appointment.status)}</p>
+                    </article>
+                `).join('') : '<p class="text-sm text-sage-600">You don’t have any appointment requests yet.</p>';
+            } catch (error) {
+                container.textContent = error.message;
+            }
+        }
+
+        document.getElementById('logout-button').addEventListener('click', async () => {
+            try {
+                await apiRequest('/api/client/logout', { method: 'POST' });
+            } catch (error) {
+                showMessage(error.message, true);
+                return;
+            }
+            clientPanel.classList.add('hidden');
+            authPanel.classList.remove('hidden');
+            document.getElementById('login-form').reset();
+            document.getElementById('signup-form').reset();
+            document.getElementById('verify-form').reset();
+            document.getElementById('verify-form').classList.add('hidden');
+            verificationEmail = '';
+            selectedSlot = null;
+            showMessage('You have been signed out.');
+        });
+
+        (async () => {
+            try {
+                const data = await apiRequest('/api/client/session');
+                await enterClientArea(data.user);
+            } catch (error) {
+                authPanel.classList.remove('hidden');
+                if (error.status !== 401) showMessage(error.message, true);
+            }
+        })();
+    </script>
+</body>
+</html>

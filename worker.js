@@ -4,6 +4,7 @@ const AUTH_PASSWORD_ITERATIONS = 100000;
 const AUTH_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const AUTH_MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const AUTH_SESSION_COOKIE = "linda_portal_session";
+const CLIENT_SESSION_COOKIE = "linda_client_session";
 const APPOINTMENT_TIME_ZONE = "America/New_York";
 
 export class ChatRoom extends DurableObject {
@@ -112,6 +113,12 @@ export class ChatRoom extends DurableObject {
       let users = (await this.ctx.storage.get("auth:users")) || [];
       let bootstrappedUser = false;
       if (users.length === 0) {
+        if (body.expectedRole === "client") {
+          return new Response(JSON.stringify({ error: "Invalid email or password." }), {
+            status: 401,
+            headers: jsonHeaders,
+          });
+        }
         const bootstrapUsername = typeof body.bootstrapUsername === "string"
           ? body.bootstrapUsername.trim().toLowerCase()
           : "";
@@ -155,7 +162,9 @@ export class ChatRoom extends DurableObject {
       }
 
       const matchingUsers = users.filter((item) =>
-        item.active && (item.username === username || item.email?.toLowerCase() === username)
+        item.active && (item.username === username || item.email?.toLowerCase() === username) &&
+        (body.expectedRole === "client" ? item.role === "client" :
+          body.expectedRole === "portal" ? ["admin", "staff"].includes(item.role) : true)
       );
       const user = matchingUsers.length === 1 ? matchingUsers[0] : null;
       const salt = user ? hexToBytes(user.salt) : new Uint8Array(16);
@@ -234,6 +243,131 @@ export class ChatRoom extends DurableObject {
         maskedEmail: mfaMethod === "email" ? maskEmail(challengeEmail) : null,
         email: mfaMethod === "email" ? challengeEmail : null,
       }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/client-signup/request" && request.method === "POST") {
+      const body = await request.json();
+      const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+      const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      if (displayName.length < 2 || displayName.length > 80 ||
+        !/^[a-z0-9._-]{3,32}$/.test(username) || !isValidEmail(email) ||
+        password.length < 12 || password.length > 256) {
+        return new Response(JSON.stringify({ error: "Enter a name, valid email and username, and password of 12-256 characters." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const ip = typeof body.clientIp === "string" ? body.clientIp : "unknown";
+      const rateLimitKey = `auth:client-signup:rate:${ip}`;
+      const rate = (await this.ctx.storage.get(rateLimitKey)) || { count: 0, windowStartedAt: Date.now() };
+      if (Date.now() - rate.windowStartedAt > 60 * 60 * 1000) {
+        rate.count = 0;
+        rate.windowStartedAt = Date.now();
+      }
+      if (rate.count >= 5) {
+        return new Response(JSON.stringify({ error: "Too many signup requests. Try again later." }), {
+          status: 429,
+          headers: jsonHeaders,
+        });
+      }
+      rate.count += 1;
+      await this.ctx.storage.put(rateLimitKey, rate);
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      if (users.some((user) => user.username === username || user.email?.toLowerCase() === email)) {
+        return new Response(JSON.stringify({ error: "An account already uses that username or email. Sign in or request a password reset." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      if (users.length >= 1000) {
+        return new Response(JSON.stringify({ error: "Online registration is temporarily unavailable. Contact the practice." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const pendingKey = `auth:client-signup:pending:${await hashSessionToken(email)}`;
+      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      await this.ctx.storage.put(pendingKey, {
+        displayName,
+        username,
+        email,
+        salt: bytesToHex(salt),
+        passwordHash: await hashPortalPassword(password, salt, AUTH_PASSWORD_ITERATIONS),
+        passwordIterations: AUTH_PASSWORD_ITERATIONS,
+        codeHash: await hashMfaCode(email, code),
+        expiresAt: Date.now() + AUTH_MFA_CHALLENGE_TTL_MS,
+        attempts: 0,
+      });
+      return new Response(JSON.stringify({ ok: true, code, email }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/client-signup/verify" && request.method === "POST") {
+      const body = await request.json();
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const code = typeof body.code === "string" ? body.code.trim() : "";
+      if (!isValidEmail(email) || !/^\d{6}$/.test(code)) {
+        return new Response(JSON.stringify({ error: "Enter the email address and six-digit verification code." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const key = `auth:client-signup:pending:${await hashSessionToken(email)}`;
+      const pending = await this.ctx.storage.get(key);
+      if (!pending || pending.expiresAt <= Date.now() || pending.attempts >= 5) {
+        if (pending) await this.ctx.storage.delete(key);
+        return new Response(JSON.stringify({ error: "The verification code expired. Start signup again." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      if (!constantTimeEqual(await hashMfaCode(email, code), pending.codeHash)) {
+        pending.attempts += 1;
+        if (pending.attempts >= 5) await this.ctx.storage.delete(key);
+        else await this.ctx.storage.put(key, pending);
+        return new Response(JSON.stringify({ error: "Invalid verification code." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      if (users.some((user) => user.username === pending.username || user.email?.toLowerCase() === email)) {
+        await this.ctx.storage.delete(key);
+        return new Response(JSON.stringify({ error: "An account already uses that username or email. Sign in or request a password reset." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      if (users.length >= 1000) {
+        await this.ctx.storage.delete(key);
+        return new Response(JSON.stringify({ error: "Online registration is temporarily unavailable. Contact the practice." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const user = {
+        id: crypto.randomUUID(),
+        username: pending.username,
+        displayName: pending.displayName,
+        email,
+        role: "client",
+        mfaMethod: "none",
+        active: true,
+        createdAt: new Date().toISOString(),
+        salt: pending.salt,
+        passwordHash: pending.passwordHash,
+        passwordIterations: pending.passwordIterations,
+      };
+      users.push(user);
+      await this.ctx.storage.put("auth:users", users);
+      await this.ctx.storage.delete(key);
+      const sessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+      const sessionHash = await hashSessionToken(sessionToken);
+      const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
+      await this.ctx.storage.put(`auth:session:${sessionHash}`, { userId: user.id, expiresAt });
+      return new Response(JSON.stringify({ sessionToken, expiresAt, user: publicPortalUser(user) }), { headers: jsonHeaders });
     }
 
     if (url.pathname === "/internal/auth/cancel-mfa" && request.method === "POST") {
@@ -769,6 +903,153 @@ export class ChatRoom extends DurableObject {
       }
     }
 
+    if (url.pathname === "/internal/client-availability" && request.method === "GET") {
+      const date = url.searchParams.get("date") || "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return new Response(JSON.stringify({ error: "Choose an appointment date." }), { status: 400, headers: jsonHeaders });
+      }
+      const [year, month, day] = date.split("-").map(Number);
+      if (new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) !== date) {
+        return new Response(JSON.stringify({ error: "Choose a valid appointment date." }), { status: 400, headers: jsonHeaders });
+      }
+      const easternParts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+        timeZone: APPOINTMENT_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(new Date()).filter((part) => part.type !== "literal")
+        .map((part) => [part.type, part.value]));
+      const easternDate = `${easternParts.year}-${easternParts.month}-${easternParts.day}`;
+      const requestedDay = Date.UTC(year, month - 1, day);
+      const today = Date.UTC(...easternDate.split("-").map(Number).map((value, index) =>
+        index === 1 ? value - 1 : value
+      ));
+      if (requestedDay < today || requestedDay > today + 90 * 24 * 60 * 60 * 1000) {
+        return new Response(JSON.stringify({ error: "Choose a date within the next 90 days." }), { status: 400, headers: jsonHeaders });
+      }
+      const schedules = (await this.ctx.storage.get("availability")) || {};
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const weekday = String(new Date(Date.UTC(year, month - 1, day)).getUTCDay());
+      const services = [
+        { name: "Free 15-Minute Consultation", duration: 15 },
+        { name: "Individual Psychotherapy", duration: 50 },
+        { name: "Anxiety & Burnout Recovery", duration: 50 },
+        { name: "Life Transitions & Relationships", duration: 50 },
+      ];
+      const requestedService = url.searchParams.get("service") || "Individual Psychotherapy";
+      const selectedService = services.find((service) => service.name === requestedService);
+      if (!selectedService) {
+        return new Response(JSON.stringify({ error: "Choose a valid appointment type." }), { status: 400, headers: jsonHeaders });
+      }
+      const clinicians = users.filter((user) => user.active && ["admin", "staff"].includes(user.role) &&
+        isValidEmail(user.email) && isValidAvailability(schedules[user.id])).map((user) => {
+        const schedule = schedules[user.id];
+        const exception = schedule.exceptions?.find((item) => item.date === date);
+        const intervals = exception ? exception.intervals : schedule.weekdays?.[weekday] || [];
+        const slots = new Set();
+        for (const interval of intervals) {
+            const toMinutes = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+            const intervalStart = toMinutes(interval.start);
+            const intervalEnd = toMinutes(interval.end);
+            for (let start = Math.ceil(intervalStart / 15) * 15;
+              start + selectedService.duration <= intervalEnd; start += 15) {
+              if (start <= 23 * 60 + 59) {
+                const time = `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
+                const reason = getAppointmentAvailabilityError({
+                  hostUserId: user.id,
+                  date,
+                  time,
+                  timeZone: APPOINTMENT_TIME_ZONE,
+                  duration: selectedService.duration,
+                }, schedule, appointments);
+                if (!reason) slots.add(time);
+              }
+            }
+        }
+        return {
+          id: user.id,
+          name: user.displayName,
+          services,
+          slots: [...slots].sort(),
+        };
+      }).filter((clinician) => clinician.slots.length > 0);
+      return new Response(JSON.stringify({ date, clinicians }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/client/appointments") {
+      const body = request.method === "POST" ? await request.json() : {};
+      const sessionToken = request.method === "POST"
+        ? body.sessionToken
+        : request.headers.get("X-Client-Session");
+      const client = await this.getSessionUser(sessionToken);
+      if (!client || client.role !== "client") {
+        return new Response(JSON.stringify({ error: "Client account sign-in required." }), { status: 401, headers: jsonHeaders });
+      }
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      if (request.method === "GET") {
+        const userAppointments = appointments.filter((appointment) => appointment.clientUserId === client.id)
+          .map(({ id, clientName, date, time, timeZone, duration, service, status, roomCode }) =>
+            ({ id, clientName, date, time, timeZone, duration, service, status, roomCode })
+          );
+        return new Response(JSON.stringify({ appointments: userAppointments }), { headers: jsonHeaders });
+      }
+      if (request.method === "POST") {
+        const service = ["Free 15-Minute Consultation", "Individual Psychotherapy",
+          "Anxiety & Burnout Recovery", "Life Transitions & Relationships"].includes(body.service)
+          ? body.service
+          : "";
+        const duration = service === "Free 15-Minute Consultation" ? 15 : 50;
+        const appointment = {
+          id: crypto.randomUUID(),
+          clientUserId: client.id,
+          clientName: client.displayName,
+          clientEmail: client.email,
+          hostUserId: typeof body.hostUserId === "string" ? body.hostUserId : "",
+          date: typeof body.date === "string" ? body.date : "",
+          time: typeof body.time === "string" ? body.time : "",
+          timeZone: APPOINTMENT_TIME_ZONE,
+          duration,
+          service,
+          roomCode: `LINDA-${100 + crypto.getRandomValues(new Uint32Array(1))[0] % 900}`,
+          reminderEnabled: true,
+          status: "Awaiting Confirmation",
+          notes: "",
+        };
+        if (!service) {
+          return new Response(JSON.stringify({ error: "Choose a valid appointment type." }), { status: 400, headers: jsonHeaders });
+        }
+        const users = (await this.ctx.storage.get("auth:users")) || [];
+        const host = users.find((user) => user.id === appointment.hostUserId && user.active &&
+          ["admin", "staff"].includes(user.role) && isValidEmail(user.email));
+        const schedules = (await this.ctx.storage.get("availability")) || {};
+        const reason = getAppointmentAvailabilityError(appointment, schedules[appointment.hostUserId], appointments);
+        if (!host || reason) {
+          return new Response(JSON.stringify({ error: !host ? "That clinician is no longer available. Choose another time." : reason }), {
+            status: 409,
+            headers: jsonHeaders,
+          });
+        }
+        if (appointments.some((item) => item.roomCode === appointment.roomCode)) {
+          appointment.roomCode = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+        }
+        appointments.push(appointment);
+        await this.ctx.storage.put("appointments", appointments);
+        return new Response(JSON.stringify({
+          appointment: {
+            id: appointment.id,
+            date: appointment.date,
+            time: appointment.time,
+            timeZone: appointment.timeZone,
+            duration: appointment.duration,
+            service: appointment.service,
+            status: appointment.status,
+          },
+          host: { displayName: host.displayName, email: host.email },
+        }), { status: 201, headers: jsonHeaders });
+      }
+    }
+
     if (url.pathname === "/internal/auth/change-password" && request.method === "POST") {
       const { sessionToken, currentPassword, newPassword } = await request.json();
       const actor = await this.getSessionUser(sessionToken);
@@ -833,8 +1114,8 @@ export class ChatRoom extends DurableObject {
         ? { sessionToken: request.headers.get("X-Portal-Session") }
         : await request.json();
       const actor = await this.getSessionUser(body.sessionToken);
-      if (!actor || actor.role !== "admin") {
-        return new Response(JSON.stringify({ error: "Administrator access required." }), {
+      if (!actor || !["admin", "staff"].includes(actor.role)) {
+        return new Response(JSON.stringify({ error: "Clinician account access required." }), {
           status: actor ? 403 : 401,
           headers: jsonHeaders,
         });
@@ -842,7 +1123,8 @@ export class ChatRoom extends DurableObject {
 
       const users = (await this.ctx.storage.get("auth:users")) || [];
       if (request.method === "GET") {
-        return new Response(JSON.stringify({ users: users.filter((user) => user.active).map(publicPortalUser) }), {
+        const visibleUsers = users.filter((user) => user.active && (actor.role === "admin" || user.role === "client"));
+        return new Response(JSON.stringify({ users: visibleUsers.map(publicPortalUser) }), {
           headers: jsonHeaders,
         });
       }
@@ -854,9 +1136,12 @@ export class ChatRoom extends DurableObject {
         const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
         const role = body.role;
         if (!/^[a-z0-9._-]{3,32}$/.test(username) || !displayName || displayName.length > 80 ||
-          !isValidEmail(email) || password.length < 12 || password.length > 256 || !["admin", "staff"].includes(role)) {
+          !isValidEmail(email) || password.length < 12 || password.length > 256 ||
+          !["admin", "staff", "client"].includes(role) || (actor.role === "staff" && role !== "client")) {
           return new Response(JSON.stringify({
-            error: "Enter a valid email, 3-32 character username, display name, password of at least 12 characters, and valid role.",
+            error: actor.role === "staff"
+              ? "Staff accounts can create appointment client accounts only."
+              : "Enter a valid email, 3-32 character username, display name, password of at least 12 characters, and valid role.",
           }), { status: 400, headers: jsonHeaders });
         }
         if (users.some((item) => item.username === username || item.email?.toLowerCase() === email)) {
@@ -865,8 +1150,8 @@ export class ChatRoom extends DurableObject {
             headers: jsonHeaders,
           });
         }
-        if (users.length >= 50) {
-          return new Response(JSON.stringify({ error: "The portal supports up to 50 accounts." }), {
+        if (users.length >= 1000) {
+          return new Response(JSON.stringify({ error: "The account limit has been reached." }), {
             status: 400,
             headers: jsonHeaders,
           });
@@ -896,6 +1181,12 @@ export class ChatRoom extends DurableObject {
         if (!target) {
           return new Response(JSON.stringify({ error: "Select another active account to reset." }), {
             status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        if (actor.role === "staff" && target.role !== "client") {
+          return new Response(JSON.stringify({ error: "Staff can manage appointment client accounts only." }), {
+            status: 403,
             headers: jsonHeaders,
           });
         }
@@ -999,6 +1290,12 @@ export class ChatRoom extends DurableObject {
         const target = users.find((item) => item.id === id && item.active);
         if (!target) {
           return new Response(JSON.stringify({ error: "Account not found." }), { status: 404, headers: jsonHeaders });
+        }
+        if (actor.role === "staff" && target.role !== "client") {
+          return new Response(JSON.stringify({ error: "Staff can manage appointment client accounts only." }), {
+            status: 403,
+            headers: jsonHeaders,
+          });
         }
         if (target.id === actor.id) {
           return new Response(JSON.stringify({ error: "You cannot deactivate your own account." }), {
@@ -1665,6 +1962,13 @@ function getSessionToken(request) {
   return cookie ? cookie.slice(AUTH_SESSION_COOKIE.length + 1) : "";
 }
 
+function getClientSessionToken(request) {
+  const cookies = request.headers.get("Cookie") || "";
+  const cookie = cookies.split(";").map((part) => part.trim())
+    .find((part) => part.startsWith(`${CLIENT_SESSION_COOKIE}=`));
+  return cookie ? cookie.slice(CLIENT_SESSION_COOKIE.length + 1) : "";
+}
+
 async function isAuthorized(request, env) {
   const sessionToken = getSessionToken(request);
   if (!sessionToken) return null;
@@ -1676,7 +1980,24 @@ async function isAuthorized(request, env) {
   }));
   if (!response.ok) return null;
   const { user } = await response.json();
-  return user || null;
+  return user && ["admin", "staff"].includes(user.role) ? user : null;
+}
+
+async function isClientAuthorized(request, env) {
+  const cookies = request.headers.get("Cookie") || "";
+  const cookie = cookies.split(";").map((part) => part.trim())
+    .find((part) => part.startsWith(`${CLIENT_SESSION_COOKIE}=`));
+  const sessionToken = cookie ? cookie.slice(CLIENT_SESSION_COOKIE.length + 1) : "";
+  if (!sessionToken) return null;
+  const stub = getAdminStoreStub(env);
+  const response = await stub.fetch(new Request("https://internal/internal/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionToken }),
+  }));
+  if (!response.ok) return null;
+  const { user } = await response.json();
+  return user?.role === "client" ? user : null;
 }
 
 function getAdminStoreStub(env) {
@@ -1858,6 +2179,7 @@ export default {
           body: JSON.stringify({
             username: credentials.username,
             password: credentials.password,
+            expectedRole: "portal",
             email: credentials.email,
             bootstrapEmail: env.ADMIN_BOOTSTRAP_EMAIL,
             bootstrapUsername: env.ADMIN_BOOTSTRAP_USERNAME,
@@ -1937,6 +2259,225 @@ export default {
           { status: 503, headers: { ...jsonHeaders, "Cache-Control": "no-store" } },
         );
       }
+    }
+
+    if (url.pathname === "/api/client-signup/request" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid signup request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid signup request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        return new Response(JSON.stringify({ error: "Account verification email is not configured. Contact the practice." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const stub = getAdminStoreStub(env);
+      const start = await stub.fetch(new Request("https://internal/internal/client-signup/request", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, clientIp: request.headers.get("CF-Connecting-IP") || "unknown" }),
+      }));
+      const result = await start.json();
+      if (!start.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Could not start account signup." }), {
+          status: start.status,
+          headers: jsonHeaders,
+        });
+      }
+      try {
+        await env.EMAIL.send({
+          from: env.SENDER_EMAIL,
+          to: result.email,
+          subject: "Verify your appointment account",
+          text: `Your appointment account verification code is ${result.code}.\n\nThe code expires in 10 minutes. If you did not request an account, you can ignore this email.`,
+        });
+      } catch (error) {
+        console.error("Appointment account verification email failed:", error);
+        return new Response(JSON.stringify({ error: "Could not send the verification code. Check the email address and try again." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/api/client-signup/verify" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid signup verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid signup verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      const verify = await stub.fetch(new Request("https://internal/internal/client-signup/verify", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }));
+      const result = await verify.json();
+      if (!verify.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Could not verify account." }), {
+          status: verify.status,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, user: result.user }), {
+        headers: {
+          ...jsonHeaders,
+          "Set-Cookie": `${CLIENT_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
+        },
+      });
+    }
+
+    if (url.pathname === "/api/client/login" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid sign-in request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body) ||
+        typeof body.username !== "string" || typeof body.password !== "string") {
+        return new Response(JSON.stringify({ error: "Enter your username or email and password." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      const login = await stub.fetch(new Request("https://internal/internal/auth/login", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          username: body.username,
+          password: body.password,
+          expectedRole: "client",
+          clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
+        }),
+      }));
+      const result = await login.json();
+      if (!login.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Invalid email or password." }), {
+          status: login.status,
+          headers: jsonHeaders,
+        });
+      }
+      if (!result.sessionToken) {
+        return new Response(JSON.stringify({ error: "Client sign-in could not be completed." }), { status: 503, headers: jsonHeaders });
+      }
+      return new Response(JSON.stringify({ ok: true, user: result.user }), {
+        headers: {
+          ...jsonHeaders,
+          "Set-Cookie": `${CLIENT_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
+        },
+      });
+    }
+
+    if (url.pathname === "/api/client/session" && request.method === "GET") {
+      const user = await isClientAuthorized(request, env);
+      return new Response(JSON.stringify(user ? { user } : { error: "Unauthorized" }), {
+        status: user ? 200 : 401,
+        headers: jsonHeaders,
+      });
+    }
+
+    if (url.pathname === "/api/client/logout" && request.method === "POST") {
+      const cookies = request.headers.get("Cookie") || "";
+      const cookie = cookies.split(";").map((part) => part.trim())
+        .find((part) => part.startsWith(`${CLIENT_SESSION_COOKIE}=`));
+      const sessionToken = cookie ? cookie.slice(CLIENT_SESSION_COOKIE.length + 1) : "";
+      const stub = getAdminStoreStub(env);
+      await stub.fetch(new Request("https://internal/internal/auth/logout", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ sessionToken }),
+      }));
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: {
+          ...jsonHeaders,
+          "Set-Cookie": `${CLIENT_SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${url.protocol === "https:" ? "; Secure" : ""}`,
+        },
+      });
+    }
+
+    if (url.pathname === "/api/client/availability" && request.method === "GET") {
+      if (!(await isClientAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Client account sign-in required." }), { status: 401, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      const target = new URL("https://internal/internal/client-availability");
+      target.search = url.search;
+      return stub.fetch(new Request(target, { headers: jsonHeaders }));
+    }
+
+    if (url.pathname === "/api/client/appointments" && ["GET", "POST"].includes(request.method)) {
+      const client = await isClientAuthorized(request, env);
+      if (!client) return new Response(JSON.stringify({ error: "Client account sign-in required." }), { status: 401, headers: jsonHeaders });
+      const stub = getAdminStoreStub(env);
+      if (request.method === "GET") {
+        return stub.fetch(new Request("https://internal/internal/client/appointments", {
+          method: "GET",
+          headers: { "X-Client-Session": getClientSessionToken(request) },
+        }));
+      }
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid appointment request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid appointment request." }), { status: 400, headers: jsonHeaders });
+      }
+      const booking = await stub.fetch(new Request("https://internal/internal/client/appointments", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, sessionToken: getClientSessionToken(request) }),
+      }));
+      const result = await booking.json();
+      if (!booking.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Could not request the appointment." }), {
+          status: booking.status,
+          headers: jsonHeaders,
+        });
+      }
+      let notificationError = "";
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        notificationError = "The request was saved, but email notifications are not configured.";
+      } else {
+        const messages = [
+          {
+            to: client.email,
+            subject: "Appointment request received",
+            text: `Hello ${client.displayName},\n\nYour appointment request has been received and is awaiting confirmation from the practice.\n\nRequested appointment: ${result.appointment.date} at ${result.appointment.time} Eastern Time\nService: ${result.appointment.service}\n\nThe practice will follow up after reviewing your request.`,
+          },
+          {
+            to: result.host.email,
+            subject: "New appointment request",
+            text: `A client has requested an appointment.\n\nClient: ${client.displayName}\nRequested appointment: ${result.appointment.date} at ${result.appointment.time} Eastern Time\nService: ${result.appointment.service}\n\nSign in to the Clinician Portal to review and confirm the request.`,
+          },
+        ];
+        const failures = [];
+        for (const message of messages) {
+          try {
+            await env.EMAIL.send({ from: env.SENDER_EMAIL, ...message });
+          } catch (error) {
+            console.error(`Appointment request email to ${message.to} failed:`, error);
+            failures.push(message.to);
+          }
+        }
+        if (failures.length) notificationError = "The request was saved, but one or more email notifications could not be sent.";
+      }
+      return new Response(JSON.stringify({
+        ok: true,
+        appointment: result.appointment,
+        ...(notificationError ? { notificationError } : {}),
+      }), { status: booking.status, headers: jsonHeaders });
     }
 
     if (url.pathname === "/api/verify-mfa" && request.method === "POST") {
@@ -2413,8 +2954,8 @@ export default {
           headers: jsonHeaders,
         });
       }
-      if (user.role !== "admin") {
-        return new Response(JSON.stringify({ error: "Administrator access required." }), {
+      if (!["admin", "staff"].includes(user.role)) {
+        return new Response(JSON.stringify({ error: "Clinician account access required." }), {
           status: 403,
           headers: jsonHeaders,
         });

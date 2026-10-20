@@ -207,7 +207,7 @@
                         Change Password
                     </button>
                     <button id="manage-users-button" onclick="openUserManagement()" class="hidden text-xs text-sage-100 bg-sage-800 hover:bg-sage-700 px-3 py-2 rounded-xl border border-sage-700 transition">
-                        Manage Users
+                        Add User
                     </button>
                     <a href="index.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 text-xs text-sage-200 hover:text-white bg-sage-800 px-3 py-2 rounded-xl border border-sage-700 transition">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
@@ -233,7 +233,7 @@
                         <div class="flex flex-wrap gap-2">
                             <button type="button" onclick="openMfaSettings()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-800 text-xs font-semibold">Security &amp; MFA</button>
                             <button type="button" onclick="openPasswordChange()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-800 text-xs font-semibold">Change Password</button>
-                            <button id="profile-manage-users-button" type="button" onclick="openUserManagement()" class="hidden px-4 py-2.5 rounded-xl bg-sage-600 text-white text-xs font-semibold">Create / Deactivate Users</button>
+                            <button id="profile-manage-users-button" type="button" onclick="openUserManagement()" class="hidden px-4 py-2.5 rounded-xl bg-sage-600 text-white text-xs font-semibold">Add / Manage Users</button>
                         </div>
                     </div>
                     <form id="profile-email-form" class="max-w-xl space-y-3 pt-5">
@@ -817,13 +817,13 @@
         </div>
     </div>
 
-    <!-- Administrator-only staff account management -->
+    <!-- Clinician account management -->
     <div id="user-management-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
             <div class="flex items-center justify-between border-b border-sand-200 pb-4">
                 <div>
-                    <h3 class="font-serif text-2xl font-semibold text-sage-900">Manage Portal Users</h3>
-                    <p class="text-xs text-sage-600 mt-1">Staff can use all portal areas. Only administrators can manage accounts.</p>
+                    <h3 class="font-serif text-2xl font-semibold text-sage-900">Add / Manage Users</h3>
+                    <p id="user-management-help" class="text-xs text-sage-600 mt-1">Admins can add staff, administrators, and appointment clients. Staff can add appointment clients.</p>
                 </div>
                 <button type="button" onclick="closeUserManagement()" class="text-sage-500 hover:text-sage-900" aria-label="Close user management">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -847,6 +847,7 @@
                     </label>
                     <label class="text-xs font-semibold text-sage-800">Role
                         <select id="new-user-role" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                            <option value="client">Appointment Client</option>
                             <option value="staff">Staff</option>
                             <option value="admin">Administrator</option>
                         </select>
@@ -1177,7 +1178,7 @@
                     <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto_auto] items-end gap-3 bg-sand-50 border border-sand-200 rounded-xl p-3">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-sage-900 truncate">${escapeHtml(user.displayName)}</p>
-                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : 'Staff'}</p>
+                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Appointment Client'}</p>
                         </div>
                         <label class="text-[11px] font-semibold text-sage-700">Account email
                             <input id="directory-email-${escapeHtml(user.id)}" type="email" required value="${escapeHtml(user.email)}" class="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-sand-300 text-xs">
@@ -1322,7 +1323,16 @@
         }
 
         async function openUserManagement() {
-            if (currentPortalUser?.role !== 'admin') return;
+            if (!['admin', 'staff'].includes(currentPortalUser?.role)) return;
+            const roleSelect = document.getElementById('new-user-role');
+            const isStaff = currentPortalUser.role === 'staff';
+            [...roleSelect.options].forEach((option) => {
+                option.hidden = isStaff && option.value !== 'client';
+            });
+            roleSelect.value = isStaff ? 'client' : 'staff';
+            document.getElementById('user-management-help').textContent = isStaff
+                ? 'You can create and manage appointment client accounts. Clinician accounts are managed by administrators.'
+                : 'Create clinician accounts or appointment client accounts. Account email is used for appointment notifications and password recovery.';
             document.getElementById('user-management-modal').classList.remove('hidden');
             await loadPortalUsers();
         }
@@ -1518,7 +1528,7 @@
                     <div class="flex items-center justify-between gap-3 bg-sand-50 border border-sand-200 rounded-xl p-3">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-sage-900 truncate">${escapeHtml(user.displayName)}</p>
-                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : 'Staff'} · ${escapeHtml(user.email || 'Email not set')}</p>
+                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : user.role === 'staff' ? 'Staff' : 'Appointment Client'} · ${escapeHtml(user.email || 'Email not set')}</p>
                             <p class="text-[11px] text-sage-500">MFA: ${user.mfaEnabled ? (user.mfaMethod === 'authenticator' ? 'Authenticator app' : 'Email code') : 'Off'}</p>
                         </div>
                         <div class="flex flex-wrap justify-end gap-2">
@@ -1657,8 +1667,10 @@
         async function unlockPortalDashboard(user) {
             currentPortalUser = user;
             document.getElementById('portal-user-label').textContent = user.displayName;
-            document.getElementById('manage-users-button').classList.toggle('hidden', user.role !== 'admin');
-            document.getElementById('profile-manage-users-button').classList.toggle('hidden', user.role !== 'admin');
+            const canManageUsers = ['admin', 'staff'].includes(user.role);
+            document.getElementById('manage-users-button').classList.toggle('hidden', !canManageUsers);
+            document.getElementById('profile-manage-users-button').classList.toggle('hidden', !canManageUsers);
+            document.getElementById('manage-users-button').textContent = user.role === 'admin' ? 'Add User' : 'Add Client';
             document.getElementById('profile-email').value = user.email || '';
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('portal-dashboard').classList.remove('hidden');
