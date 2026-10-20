@@ -287,29 +287,28 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    <!-- Inbound Confirmations & Inquiries (Left 7 Cols) -->
-                    <div class="lg:col-span-7 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
-                        <div class="flex items-center justify-between border-b border-sand-200 pb-3">
+                <div class="bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sand-200 pb-4">
+                        <div>
                             <h3 class="font-serif text-xl font-semibold text-sage-900 flex items-center gap-2">
                                 <i data-lucide="inbox" class="w-5 h-5 text-emerald-600"></i>
-                                <span>Received Emails &amp; Confirmations</span>
+                                <span>Mail</span>
+                                <span id="mail-folder-count" class="hidden text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full"></span>
                             </h3>
-                            <span class="text-xs text-sage-500">Auto-updates appointment status</span>
+                            <p class="text-xs text-sage-500 mt-1">Manage received messages and sent mail. Organizing mail updates your shared portal log.</p>
                         </div>
-                        <div id="inbound-emails-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
-                    </div>
-
-                    <!-- Outbound Sent Emails (Right 5 Cols) -->
-                    <div class="lg:col-span-5 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
-                        <div class="flex items-center justify-between border-b border-sand-200 pb-3">
-                            <h3 class="font-serif text-xl font-semibold text-sage-900 flex items-center gap-2">
-                                <i data-lucide="mail-check" class="w-5 h-5 text-sage-600"></i>
-                                <span>Sent Confirmation &amp; Outbound Log</span>
-                            </h3>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <select id="email-folder-filter" onchange="renderEmailsCenter()" class="px-3 py-2 rounded-xl bg-sand-50 border border-sand-300 text-xs text-sage-800">
+                                <option value="inbox">Inbox</option>
+                                <option value="sent">Sent</option>
+                                <option value="follow-up">Follow-up</option>
+                                <option value="archived">Archived</option>
+                                <option value="all">All mail</option>
+                            </select>
+                            <input id="email-search" type="search" oninput="renderEmailsCenter()" placeholder="Search mail..." class="px-3 py-2 rounded-xl bg-sand-50 border border-sand-300 text-xs text-sage-800">
                         </div>
-                        <div id="outbound-emails-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
                     </div>
+                    <div id="email-list" class="space-y-3 max-h-[650px] overflow-y-auto pr-1"></div>
                 </div>
             </section>
 
@@ -1042,11 +1041,16 @@
                     })
                 });
                 const data = await res.json();
+                if (!res.ok || data.ok === false) {
+                    throw new Error(data.error || `Confirmation email request failed (${res.status}).`);
+                }
                 await loadPortalData();
                 renderEmailsCenter();
-                showPortalToast(`Confirmation email sent to ${appt.clientEmail}`);
+                showPortalToast(data.sentViaCloudflare
+                    ? `Confirmation email sent to ${appt.clientEmail}.`
+                    : `Saved to portal, but not delivered: ${data.deliveryStatus || 'email service unavailable'}`);
             } catch (err) {
-                showPortalToast("Confirmation email logged locally.");
+                showPortalToast(err.message || "Confirmation email could not be sent.");
             }
         }
 
@@ -1061,14 +1065,75 @@
             document.getElementById('compose-email-modal').classList.add('hidden');
         }
 
+        async function saveEmailOrganization(email) {
+            const res = await fetch('/api/emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ email })
+            });
+            if (!res.ok) throw new Error(`Could not update email organization (${res.status}).`);
+            const idx = emailLogs.findIndex((item) => item.id === email.id);
+            if (idx >= 0) emailLogs[idx] = email;
+            localStorage.setItem(LOCAL_EMAILS_KEY, JSON.stringify(emailLogs));
+        }
+
+        async function organizeEmail(id, folder) {
+            const email = emailLogs.find((item) => item.id === id);
+            if (!email) return;
+            try {
+                await saveEmailOrganization({ ...email, folder });
+                renderEmailsCenter();
+                showPortalToast(`Moved to ${folder === 'follow-up' ? 'Follow-up' : folder}.`);
+            } catch (err) {
+                renderEmailsCenter();
+                showPortalToast(err.message || "Could not organize this email.");
+            }
+        }
+
+        async function deleteEmail(id) {
+            const email = emailLogs.find((item) => item.id === id);
+            if (!email || !confirm(`Permanently delete "${email.subject || 'this email'}" from the portal mail log?`)) return;
+            try {
+                const res = await fetch(`/api/emails?id=${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+                if (!res.ok) throw new Error(`Could not delete email (${res.status}).`);
+                emailLogs = emailLogs.filter((item) => item.id !== id);
+                localStorage.setItem(LOCAL_EMAILS_KEY, JSON.stringify(emailLogs));
+                renderEmailsCenter();
+                showPortalToast("Email deleted.");
+            } catch (err) {
+                showPortalToast(err.message || "Could not delete this email.");
+            }
+        }
+
+        function replyToEmail(id) {
+            const email = emailLogs.find((item) => item.id === id);
+            if (!email) return;
+            const address = String(email.from || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+            if (!address) {
+                showPortalToast("No reply email address was found.");
+                return;
+            }
+            const subject = String(email.subject || '');
+            openComposeEmailModal(address[0], /^re:/i.test(subject) ? subject : `Re: ${subject}`);
+        }
+
         async function sendCustomEmailForm(e) {
             e.preventDefault();
             const to = document.getElementById('compose-to').value.trim();
             const subject = document.getElementById('compose-subject').value.trim();
             const text = document.getElementById('compose-body').value.trim();
+            const submitButton = document.getElementById('compose-submit-btn');
+            submitButton.disabled = true;
+            submitButton.querySelector('span').textContent = "Sending...";
 
             try {
-                await fetch('/api/send-email', {
+                const res = await fetch('/api/send-email', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1076,73 +1141,88 @@
                     },
                     body: JSON.stringify({ to, subject, text })
                 });
+                const result = await res.json();
+                if (!res.ok || result.ok === false) {
+                    throw new Error(result.error || `Email request failed (${res.status}).`);
+                }
                 await loadPortalData();
                 renderEmailsCenter();
                 closeComposeEmailModal();
-                showPortalToast(`Email sent to ${to}`);
-            } catch {
-                closeComposeEmailModal();
-                showPortalToast("Email logged.");
+                showPortalToast(result.sentViaCloudflare
+                    ? `Email sent to ${to}.`
+                    : `Saved to portal, but not delivered: ${result.deliveryStatus || 'email service unavailable'}`);
+            } catch (err) {
+                showPortalToast(err.message || "Email could not be sent.");
+            } finally {
+                submitButton.disabled = false;
+                submitButton.querySelector('span').textContent = "Send Email";
             }
         }
 
         function renderEmailsCenter() {
-            const inboundBox = document.getElementById('inbound-emails-container');
-            const outboundBox = document.getElementById('outbound-emails-container');
-            const badge = document.getElementById('inbox-count-badge');
+            const emailList = document.getElementById('email-list');
+            const badges = [
+                document.getElementById('inbox-count-badge'),
+                document.getElementById('mail-folder-count')
+            ].filter(Boolean);
+            const folderFilter = document.getElementById('email-folder-filter');
+            const searchInput = document.getElementById('email-search');
+            if (!emailList || !folderFilter || !searchInput) return;
 
-            const inbound = emailLogs.filter((e) => e.direction === 'inbound');
-            const outbound = emailLogs.filter((e) => e.direction === 'outbound');
+            const folderFor = (item) => item.folder || (item.direction === 'outbound' ? 'sent' : 'inbox');
+            const inboxCount = emailLogs.filter((item) => folderFor(item) === 'inbox').length;
+            badges.forEach((badge) => {
+                badge.textContent = String(inboxCount);
+                badge.classList.toggle('hidden', inboxCount === 0);
+            });
 
-            if (inbound.length > 0) {
-                badge.textContent = String(inbound.length);
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
+            const selectedFolder = folderFilter.value;
+            const search = searchInput.value.trim().toLowerCase();
+            const visibleEmails = emailLogs.filter((item) => {
+                const folder = folderFor(item);
+                const matchesFolder = selectedFolder === 'all' || folder === selectedFolder;
+                const haystack = [item.from, item.to, item.subject, item.body, item.deliveryStatus]
+                    .map((value) => String(value || '').toLowerCase()).join(' ');
+                return matchesFolder && haystack.includes(search);
+            });
+
+            if (visibleEmails.length === 0) {
+                emailList.innerHTML = `<div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 text-xs sm:text-sm">No messages in this folder.</div>`;
+                return;
             }
 
-            if (inbound.length === 0) {
-                inboundBox.innerHTML = `
-                    <div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 text-xs sm:text-sm">
-                        No incoming emails or confirmation replies yet. When clients reply to confirmation emails or submit the contact form, they appear here automatically.
-                    </div>
-                `;
-            } else {
-                inboundBox.innerHTML = inbound.map((item) => `
-                    <div class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-2">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <span class="text-[11px] font-semibold text-emerald-700 block">${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
-                                <h4 class="font-semibold text-sm text-sage-900">${escapeHtml(item.subject)}</h4>
-                                <p class="text-xs text-sage-600">From: <strong>${escapeHtml(item.from)}</strong></p>
+            emailList.innerHTML = visibleEmails.map((item) => {
+                const folder = folderFor(item);
+                const isInbound = item.direction !== 'outbound';
+                const folderOptions = [
+                    ['inbox', 'Inbox'],
+                    ['sent', 'Sent'],
+                    ['follow-up', 'Follow-up'],
+                    ['archived', 'Archived']
+                ].map(([value, label]) => `<option value="${value}" ${folder === value ? 'selected' : ''}>${label}</option>`).join('');
+                return `
+                    <article class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <span class="text-[10px] font-semibold uppercase tracking-wide text-sage-500">${isInbound ? 'Received' : 'Sent'} • ${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
+                                <h4 class="font-semibold text-sm text-sage-900 break-words">${escapeHtml(item.subject || '(No subject)')}</h4>
+                                <p class="text-xs text-sage-600 break-all">${isInbound ? 'From' : 'To'}: <strong>${escapeHtml(isInbound ? item.from : item.to)}</strong></p>
+                                ${item.resultingStatus ? `<span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.resultingStatus === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${escapeHtml(item.resultingStatus)}</span>` : ''}
+                                ${!isInbound && item.deliveryStatus ? `<p class="text-[10px] text-sage-600 mt-1">${escapeHtml(item.deliveryStatus)}</p>` : ''}
                             </div>
-                            ${item.resultingStatus ? `
-                                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${item.resultingStatus === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
-                                    ${escapeHtml(item.resultingStatus)}
-                                </span>
-                            ` : ''}
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                <label class="sr-only" for="email-folder-${escapeHtml(item.id)}">Move message</label>
+                                <select id="email-folder-${escapeHtml(item.id)}" onchange="organizeEmail('${escapeHtml(item.id)}', this.value)" class="px-2.5 py-1.5 rounded-lg bg-white border border-sand-300 text-[11px] text-sage-800">
+                                    ${folderOptions}
+                                </select>
+                                ${isInbound ? `<button onclick="replyToEmail('${escapeHtml(item.id)}')" class="px-2.5 py-1.5 rounded-lg bg-white border border-sand-300 text-[11px] text-sage-700 hover:bg-sand-100">Reply</button>` : ''}
+                                <button onclick="deleteEmail('${escapeHtml(item.id)}')" class="px-2.5 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] text-rose-700 hover:bg-rose-50">Delete</button>
+                            </div>
                         </div>
-                        <p class="text-xs text-sage-800 bg-white p-3 rounded-xl border border-sand-200 whitespace-pre-line">${escapeHtml(cleanLoggedEmailBody(item.body))}</p>
-                    </div>
-                `).join('');
-            }
-
-            if (outbound.length === 0) {
-                outboundBox.innerHTML = `
-                    <div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 text-xs sm:text-sm">
-                        No outbound emails sent yet. Click <strong>"Email Confirm"</strong> on any appointment to send a confirmation request.
-                    </div>
+                        <p class="text-xs text-sage-800 bg-white p-3 rounded-xl border border-sand-200 whitespace-pre-line break-words">${escapeHtml(cleanLoggedEmailBody(item.body))}</p>
+                    </article>
                 `;
-            } else {
-                outboundBox.innerHTML = outbound.map((item) => `
-                    <div class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-1.5">
-                        <span class="text-[10px] font-semibold text-sage-500 block">${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
-                        <h4 class="font-semibold text-xs sm:text-sm text-sage-900">${escapeHtml(item.subject)}</h4>
-                        <p class="text-xs text-sage-700">To: <strong>${escapeHtml(item.to)}</strong></p>
-                        <p class="text-[11px] text-emerald-700 font-medium">${escapeHtml(item.deliveryStatus || 'Sent')}</p>
-                    </div>
-                `).join('');
-            }
+            }).join('');
         }
 
         // =====================================================================

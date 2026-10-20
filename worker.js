@@ -134,7 +134,18 @@ export class ChatRoom extends DurableObject {
       if (request.method === "POST") {
         const body = await request.json();
         const emailEntry = body.email;
-        emails.unshift(emailEntry);
+        if (!emailEntry || typeof emailEntry.id !== "string") {
+          return new Response(JSON.stringify({ error: "A valid email record is required." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const existingIndex = emails.findIndex((email) => email.id === emailEntry.id);
+        if (existingIndex >= 0) {
+          emails[existingIndex] = emailEntry;
+        } else {
+          emails.unshift(emailEntry);
+        }
         // Keep latest 200 emails
         const trimmed = emails.slice(0, 200);
         await this.ctx.storage.put("emails", trimmed);
@@ -142,6 +153,12 @@ export class ChatRoom extends DurableObject {
       }
       if (request.method === "DELETE") {
         const id = url.searchParams.get("id");
+        if (!id) {
+          return new Response(JSON.stringify({ error: "An email id is required." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
         const filtered = emails.filter((e) => e.id !== id);
         await this.ctx.storage.put("emails", filtered);
         return new Response(JSON.stringify({ emails: filtered }), { headers: jsonHeaders });
