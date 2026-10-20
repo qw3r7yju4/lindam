@@ -20,9 +20,9 @@ export class ChatRoom extends DurableObject {
     const [client, server] = Object.values(pair);
 
     const clientId = crypto.randomUUID();
-    server.serializeAttachment({ clientId, clientName });
 
     this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({ clientId, clientName });
 
     const existing = this.ctx.getWebSockets().filter((ws) => ws !== server);
     const existingPeers = [];
@@ -76,7 +76,6 @@ export class ChatRoom extends DurableObject {
 
     const otherSockets = this.ctx.getWebSockets().filter((socket) => socket !== ws);
 
-    // If the message is targeted to a specific peer (offer, answer, ice-candidate), send only to that peer
     if (data.targetPeerId) {
       for (const recipient of otherSockets) {
         const attachment = recipient.deserializeAttachment();
@@ -86,7 +85,6 @@ export class ChatRoom extends DurableObject {
         }
       }
     } else {
-      // Otherwise broadcast to all other peers in the room (e.g., chat messages)
       for (const recipient of otherSockets) {
         recipient.send(outgoingPayload);
       }
@@ -116,6 +114,45 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // 1. Endpoint to provide STUN + Cloudflare TURN credentials to the browser
+    if (url.pathname === "/turn/credentials") {
+      const defaultIceServers = [
+        { urls: "stun:stun.cloudflare.com:3478" },
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ];
+
+      if (env.TURN_KEY_ID && env.TURN_API_TOKEN) {
+        try {
+          const cfRes = await fetch(
+            `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials/generate-ice-servers`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${env.TURN_API_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ ttl: 86400 }),
+            },
+          );
+          if (cfRes.ok) {
+            const data = await cfRes.json();
+            return new Response(JSON.stringify(data), {
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch Cloudflare TURN credentials:", err);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ iceServers: defaultIceServers }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // 2. WebSocket Signaling Endpoint
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       const roomId = url.searchParams.get("room") || "default";
       const id = env.CHAT_ROOM.idFromName(roomId);
@@ -123,7 +160,7 @@ export default {
       return stub.fetch(request);
     }
 
-    // Serve static files if Cloudflare Workers Assets binding is present
+    // 3. Static Assets Fallback (if using Workers Assets)
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }

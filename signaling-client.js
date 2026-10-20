@@ -4,17 +4,44 @@ class SignalingClient {
     this.peerId = null;
     this.peers = new Map();
     this.remoteStreams = new Map();
-    this.pendingCandidates = new Map();
+    this.pendingRemoteCandidates = new Map();
     this.peerNames = new Map();
     this.localStream = null;
+    this.iceServers = [
+      { urls: "stun:stun.cloudflare.com:3478" },
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+    this._signalQueue = Promise.resolve();
     this.onRemoteStream = null;
     this.onConnectionStateChange = null;
     this.onPeerLeft = null;
     this.onChatMessage = null;
   }
 
+  async _loadIceServers() {
+    try {
+      const res = await fetch("/turn/credentials");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+          this.iceServers = data.iceServers;
+          const hasTurn = this.iceServers.some((s) => {
+            const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+            return urls.some((u) => typeof u === "string" && u.startsWith("turn"));
+          });
+          console.log(`[signaling] Loaded ICE servers (TURN relay active: ${hasTurn})`);
+        }
+      }
+    } catch (err) {
+      console.warn("[signaling] Using default STUN servers:", err);
+    }
+  }
+
   async connect(roomId, localStream, userName = "Participant") {
     this.localStream = localStream;
+    await this._loadIceServers();
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws?room=${encodeURIComponent(roomId)}&name=${encodeURIComponent(userName)}`;
 
@@ -27,7 +54,10 @@ class SignalingClient {
       } catch {
         return;
       }
-      this._handleMessage(data);
+      // Process all signaling messages sequentially to prevent race conditions
+      this._signalQueue = this._signalQueue
+        .then(() => this._handleMessage(data))
+        .catch((err) => console.error("[signaling] Queue error:", err));
     };
 
     this.ws.onclose = () => {
@@ -45,7 +75,7 @@ class SignalingClient {
     });
   }
 
-  _handleMessage(data) {
+  async _handleMessage(data) {
     switch (data.type) {
       case "connected":
         this.peerId = data.peerId;
@@ -59,7 +89,7 @@ class SignalingClient {
 
       case "peer-joined":
         if (data.name) this.peerNames.set(data.peerId, data.name);
-        this._createOffer(data.peerId);
+        await this._createOffer(data.peerId);
         break;
 
       case "peer-left":
@@ -70,20 +100,20 @@ class SignalingClient {
       case "offer": {
         const remotePeerId = data.fromPeerId || data.peerId;
         if (data.fromName) this.peerNames.set(remotePeerId, data.fromName);
-        this._handleOffer(remotePeerId, data.sdp);
+        await this._handleOffer(remotePeerId, data.sdp);
         break;
       }
 
       case "answer": {
         const remotePeerId = data.fromPeerId || data.peerId;
         if (data.fromName) this.peerNames.set(remotePeerId, data.fromName);
-        this._handleAnswer(remotePeerId, data.sdp);
+        await this._handleAnswer(remotePeerId, data.sdp);
         break;
       }
 
       case "ice-candidate": {
         const remotePeerId = data.fromPeerId || data.peerId;
-        this._handleIceCandidate(remotePeerId, data.candidate);
+        await this._handleIceCandidate(remotePeerId, data.candidate);
         break;
       }
 
@@ -105,13 +135,13 @@ class SignalingClient {
     }
 
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun.cloudflare.com:3478" },
-      ],
+      iceServers: this.iceServers,
+      iceCandidatePoolSize: 4,
     });
+
+    // Buffer local ICE candidates until our local Offer or Answer has been sent
+    pc._canSendLocalCandidates = false;
+    pc._localCandidateBuffer = [];
 
     this.peers.set(peerId, pc);
 
@@ -122,12 +152,17 @@ class SignalingClient {
     }
 
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this._send({
+      if (event.candidate && event.candidate.candidate) {
+        const payload = {
           type: "ice-candidate",
           targetPeerId: peerId,
-          candidate: event.candidate,
-        });
+          candidate: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate,
+        };
+        if (pc._canSendLocalCandidates) {
+          this._send(payload);
+        } else {
+          pc._localCandidateBuffer.push(payload);
+        }
       }
     };
 
@@ -159,28 +194,34 @@ class SignalingClient {
     pc.onconnectionstatechange = () => {
       console.log(`[signaling] Peer ${peerId} connectionState: ${pc.connectionState}`);
       if (this.onConnectionStateChange) {
-        this.onConnectionStateChange(peerId, pc.connectionState);
+        const peerName = this.peerNames.get(peerId) || "Connected Participant";
+        this.onConnectionStateChange(peerId, pc.connectionState, peerName);
       }
     };
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[signaling] Peer ${peerId} iceConnectionState: ${pc.iceConnectionState}`);
-      if (pc.iceConnectionState === "failed") {
-        pc.restartIce();
-      }
     };
 
     return pc;
   }
 
-  async _flushPendingCandidates(peerId, pc) {
-    const queue = this.pendingCandidates.get(peerId);
+  _flushLocalCandidates(pc) {
+    pc._canSendLocalCandidates = true;
+    while (pc._localCandidateBuffer.length > 0) {
+      const payload = pc._localCandidateBuffer.shift();
+      this._send(payload);
+    }
+  }
+
+  async _flushRemoteCandidates(peerId, pc) {
+    const queue = this.pendingRemoteCandidates.get(peerId);
     if (!queue || queue.length === 0) return;
 
-    this.pendingCandidates.delete(peerId);
+    this.pendingRemoteCandidates.delete(peerId);
     for (const candidate of queue) {
       try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        await pc.addIceCandidate(candidate);
       } catch (err) {
         console.warn("[signaling] Failed to add queued ICE candidate:", err);
       }
@@ -192,11 +233,16 @@ class SignalingClient {
       const pc = this._createPeerConnection(peerId);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+
+      // 1. Send the Offer first
       this._send({
         type: "offer",
         targetPeerId: peerId,
-        sdp: pc.localDescription,
+        sdp: { type: offer.type, sdp: offer.sdp },
       });
+
+      // 2. Then flush any local ICE candidates gathered so far
+      this._flushLocalCandidates(pc);
     } catch (err) {
       console.error("[signaling] Error creating offer:", err);
     }
@@ -205,16 +251,21 @@ class SignalingClient {
   async _handleOffer(peerId, sdp) {
     try {
       const pc = this._createPeerConnection(peerId);
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      await this._flushPendingCandidates(peerId, pc);
+      await pc.setRemoteDescription(sdp);
+      await this._flushRemoteCandidates(peerId, pc);
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+
+      // 1. Send the Answer first
       this._send({
         type: "answer",
         targetPeerId: peerId,
-        sdp: pc.localDescription,
+        sdp: { type: answer.type, sdp: answer.sdp },
       });
+
+      // 2. Then flush any local ICE candidates gathered so far
+      this._flushLocalCandidates(pc);
     } catch (err) {
       console.error("[signaling] Error handling offer:", err);
     }
@@ -224,28 +275,27 @@ class SignalingClient {
     try {
       const pc = this.peers.get(peerId);
       if (!pc) return;
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      await this._flushPendingCandidates(peerId, pc);
+      await pc.setRemoteDescription(sdp);
+      await this._flushRemoteCandidates(peerId, pc);
     } catch (err) {
       console.error("[signaling] Error handling answer:", err);
     }
   }
 
   async _handleIceCandidate(peerId, candidate) {
-    if (!candidate) return;
+    if (!candidate || !candidate.candidate) return;
     const pc = this.peers.get(peerId);
 
-    // If the PeerConnection doesn't exist yet or remoteDescription isn't set yet, queue the candidate
     if (!pc || !pc.remoteDescription || !pc.remoteDescription.type) {
-      if (!this.pendingCandidates.has(peerId)) {
-        this.pendingCandidates.set(peerId, []);
+      if (!this.pendingRemoteCandidates.has(peerId)) {
+        this.pendingRemoteCandidates.set(peerId, []);
       }
-      this.pendingCandidates.get(peerId).push(candidate);
+      this.pendingRemoteCandidates.get(peerId).push(candidate);
       return;
     }
 
     try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      await pc.addIceCandidate(candidate);
     } catch (err) {
       console.warn("[signaling] Error adding ICE candidate:", err);
     }
@@ -258,7 +308,7 @@ class SignalingClient {
       this.peers.delete(peerId);
     }
     this.remoteStreams.delete(peerId);
-    this.pendingCandidates.delete(peerId);
+    this.pendingRemoteCandidates.delete(peerId);
     this.peerNames.delete(peerId);
   }
 

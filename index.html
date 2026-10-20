@@ -1424,7 +1424,7 @@
         }
 
         // Join Telehealth Room via Durable Object WebSocket Signaling
-        async function joinTelehealthRoom() {
+async function joinTelehealthRoom() {
             const roomInput = document.getElementById('video-room-code');
             const roomCodeRaw = roomInput.value.trim();
             const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1459,30 +1459,48 @@
 
             signalingClient.onRemoteStream = (peerId, remoteStream, peerName) => {
                 const remoteVideo = document.getElementById('remote-video');
-                const waitingOverlay = document.getElementById('waiting-room-overlay');
                 const remoteBadge = document.getElementById('remote-name-badge');
 
                 if (remoteVideo.srcObject !== remoteStream) {
                     remoteVideo.srcObject = remoteStream;
                 }
-                remoteVideo.classList.remove('hidden');
-                remoteVideo.play().catch(err => console.warn("Remote video play notice:", err));
-
-                waitingOverlay.classList.add('hidden');
-                remoteBadge.classList.remove('hidden');
                 remoteBadge.textContent = peerName || "Connected Participant";
+
+                // Reveal the video feed as soon as actual video frames arrive
+                remoteVideo.onloadedmetadata = () => {
+                    remoteVideo.classList.remove('hidden');
+                    document.getElementById('waiting-room-overlay').classList.add('hidden');
+                    remoteBadge.classList.remove('hidden');
+                    remoteVideo.play().catch(err => console.warn("Remote video play notice:", err));
+                };
             };
 
-            signalingClient.onConnectionStateChange = (peerId, state) => {
+            signalingClient.onConnectionStateChange = (peerId, state, peerName) => {
+                const remoteVideo = document.getElementById('remote-video');
+                const waitingOverlay = document.getElementById('waiting-room-overlay');
+                const remoteBadge = document.getElementById('remote-name-badge');
+
                 if (state === "connected") {
+                    remoteVideo.classList.remove('hidden');
+                    waitingOverlay.classList.add('hidden');
+                    remoteBadge.classList.remove('hidden');
+                    remoteBadge.textContent = peerName || "Connected Participant";
+                    remoteVideo.play().catch(() => {});
+
                     document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
                     updateConnectionBadge("Live Encrypted Call", "bg-emerald-600 text-white");
                     startCallTimer();
                     appendChatSystemMessage("Video & audio session connected.");
                 } else if (state === "connecting") {
-                    updateConnectionBadge("Negotiating Video...", "bg-amber-600 text-white");
-                } else if (state === "disconnected" || state === "failed") {
-                    updateConnectionBadge("Reconnecting...", "bg-rose-700 text-rose-100");
+                    updateConnectionBadge("Connecting Video...", "bg-amber-600 text-white");
+                    document.getElementById('waiting-room-heading').textContent = `Connecting with ${peerName || 'Participant'}...`;
+                    document.getElementById('waiting-room-subtext').textContent = "Establishing encrypted peer-to-peer video stream...";
+                } else if (state === "failed") {
+                    resetRemoteVideoStage();
+                    updateConnectionBadge("NAT/Firewall Blocked", "bg-rose-700 text-rose-100");
+                    document.getElementById('waiting-room-heading').textContent = "Video Stream Blocked by Network Firewall";
+                    document.getElementById('waiting-room-subtext').innerHTML = "Signaling succeeded, but direct UDP video was blocked between these two networks. Ensure <strong>TURN_KEY_ID</strong> and <strong>TURN_API_TOKEN</strong> are set in your Cloudflare Worker settings.";
+                    appendChatSystemMessage("Direct UDP blocked by network firewall. TURN relay required.");
                 }
             };
 
@@ -1512,7 +1530,7 @@
                 alert("Could not connect to the signaling server. Please check your internet connection and try again.");
             }
         }
-
+        
         // Toggle Microphone Mute
         function toggleMicrophone() {
             if (!localStream) {
