@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinician Portal | Linda Milewski, LCSW</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- WebRTC Signaling Client -->
+    <script src="signaling-client.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        sage: {
+                            50: '#f4f7f4',
+                            100: '#e4ebe4',
+                            200: '#c9d8c9',
+                            300: '#a3bca4',
+                            400: '#769a78',
+                            500: '#557c58',
+                            600: '#416244',
+                            700: '#354f37',
+                            800: '#2c402e',
+                            900: '#253527',
+                        },
+                        sand: {
+                            50: '#fdfcfa',
+                            100: '#f8f5ef',
+                            200: '#f0eadd',
+                            300: '#e4d9c5',
+                            400: '#d3c1a3',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8f5ef;
+            color: #2c352d;
+        }
+        .mirror-video {
+            transform: scaleX(-1);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- =====================================================================
+         1. LOGIN VIEW (Shown until Linda authenticates)
+         ===================================================================== -->
+    <div id="login-screen" class="flex-1 flex items-center justify-center p-4 bg-gradient-to-b from-sage-900 via-sage-800 to-sage-900">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-sand-200 p-8 sm:p-10 space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 rounded-2xl bg-sage-600 text-white flex items-center justify-center mx-auto shadow-md">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
+                </div>
+                <h1 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Clinician Portal</h1>
+                <p class="text-xs sm:text-sm text-sage-600">Linda Milewski, LCSW • Practice Management &amp; Telehealth</p>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-username" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1.5">
+                        Username
+                    </label>
+                    <input
+                        type="text"
+                        id="login-username"
+                        required
+                        autocomplete="username"
+                        placeholder="Enter username"
+                        class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-600"
+                    >
+                </div>
+
+                <div>
+                    <label for="login-password" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1.5">
+                        Password
+                    </label>
+                    <input
+                        type="password"
+                        id="login-password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="••••••••••••"
+                        class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-600"
+                    >
+                </div>
+
+                <div id="login-error" class="hidden text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                    Invalid username or password. Please try again.
+                </div>
+
+                <button
+                    type="submit"
+                    id="login-submit-btn"
+                    class="w-full bg-sage-600 hover:bg-sage-700 text-white font-semibold py-3.5 px-6 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm"
+                >
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <span>Sign In to Portal</span>
+                </button>
+            </form>
+
+            <div class="pt-4 border-t border-sand-200 text-center">
+                <a href="index.html" class="text-xs text-sage-600 hover:text-sage-900 font-medium inline-flex items-center gap-1.5">
+                    <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                    <span>Return to Public Website</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         2. PROTECTED CLINICIAN PORTAL DASHBOARD
+         ===================================================================== -->
+    <div id="portal-dashboard" class="hidden flex-1 flex flex-col">
+
+        <!-- Top Portal Header -->
+        <header class="bg-sage-900 text-sand-50 border-b border-sage-800 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-sage-600 text-white flex items-center justify-center">
+                        <i data-lucide="sprout" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <span class="font-serif text-lg font-semibold text-white block leading-none">Linda Milewski, LCSW</span>
+                        <span class="text-[11px] text-emerald-300 font-medium tracking-wider uppercase block mt-0.5">Clinician Backend Portal</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="flex items-center gap-1 sm:gap-2 bg-sage-800/90 p-1 rounded-xl border border-sage-700">
+                    <button onclick="switchPortalTab('calendar')" id="tab-btn-calendar" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm">
+                        <i data-lucide="calendar" class="w-4 h-4"></i>
+                        <span>Calendar &amp; .ics</span>
+                    </button>
+                    <button onclick="switchPortalTab('video')" id="tab-btn-video" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                        <i data-lucide="video" class="w-4 h-4"></i>
+                        <span>Clinician Video Studio</span>
+                        <span id="header-live-dot" class="hidden w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </button>
+                    <button onclick="switchPortalTab('hours')" id="tab-btn-hours" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                        <span>Hours Tracker</span>
+                    </button>
+                </nav>
+
+                <!-- Right Actions -->
+                <div class="flex items-center gap-3">
+                    <a href="index.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 text-xs text-sage-200 hover:text-white bg-sage-800 px-3 py-2 rounded-xl border border-sage-700 transition">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                        <span>Public Site</span>
+                    </a>
+                    <button onclick="logoutPortal()" class="text-xs text-rose-200 hover:text-white bg-rose-900/50 hover:bg-rose-800 px-3.5 py-2 rounded-xl border border-rose-700/50 transition flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace Container -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+            <!-- =================================================================
+                 TAB 1: CALENDAR, APPOINTMENTS & .ICS FUNCTIONALITY
+                 ================================================================= -->
+            <section id="portal-tab-calendar" class="space-y-8">
+                <!-- Top Action Bar -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                    <div>
+                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Appointment Schedule &amp; Calendar</h2>
+                        <p class="text-xs sm:text-sm text-sage-600 mt-1">
+                            Manage client sessions, launch telehealth rooms, and export or import standard <code>.ics</code> calendar files.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="openAppointmentModal()" class="bg-sage-600 hover:bg-sage-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>New Appointment</span>
+                        </button>
+                        <button onclick="exportAllAppointmentsICS()" class="bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4 text-sage-700"></i>
+                            <span>Export Full .ics</span>
+                        </button>
+                        <label class="cursor-pointer bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="upload" class="w-4 h-4 text-sage-700"></i>
+                            <span>Import .ics</span>
+                            <input type="file" id="ics-import-input" accept=".ics,text/calendar" class="hidden" onchange="importICSFile(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Calendar Grid + Selected Month Appointments -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    <!-- Left 7 Cols: Interactive Monthly Calendar -->
+                    <div class="lg:col-span-7 bg-white rounded-3xl border border-sand-200 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 id="calendar-month-label" class="font-serif text-xl font-semibold text-sage-900">Month Year</h3>
+                            <div class="flex items-center gap-2">
+                                <button onclick="changeCalendarMonth(-1)" class="p-2 rounded-xl bg-sand-50 hover:bg-sand-200 text-sage-800 border border-sand-200 transition">
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="goToTodayCalendar()" class="px-3 py-1.5 rounded-xl bg-sand-50 hover:bg-sand-200 text-xs font-semibold text-sage-800 border border-sand-200 transition">
+                                    Today
+                                </button>
+                                <button onclick="changeCalendarMonth(1)" class="p-2 rounded-xl bg-sand-50 hover:bg-sand-200 text-sage-800 border border-sand-200 transition">
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Weekday Headers -->
+                        <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wider text-sage-500 pb-2 border-b border-sand-200">
+                            <div>Sun</div>
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                            <div>Sat</div>
+                        </div>
+
+                        <!-- Days Grid -->
+                        <div id="calendar-days-grid" class="grid grid-cols-7 gap-1.5 mt-2"></div>
+                    </div>
+
+                    <!-- Right 5 Cols: Appointments List & Quick Actions -->
+                    <div class="lg:col-span-5 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
+                        <div class="flex items-center justify-between border-b border-sand-200 pb-3">
+                            <div>
+                                <h3 id="agenda-heading" class="font-serif text-xl font-semibold text-sage-900">Upcoming Appointments</h3>
+                                <p id="agenda-subheading" class="text-xs text-sage-600">Click any date on the calendar to filter</p>
+                            </div>
+                            <button onclick="clearDateFilter()" id="btn-show-all-dates" class="hidden text-xs font-semibold text-sage-600 hover:text-sage-900 underline">
+                                Show All
+                            </button>
+                        </div>
+
+                        <div id="appointments-list-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 TAB 2: CLINICIAN BACKEND VIDEO STUDIO (AUTO-LOGS HOURS)
+                 ================================================================= -->
+            <section id="portal-tab-video" class="hidden space-y-6">
+                <div class="bg-sage-900 text-sand-50 rounded-3xl p-6 sm:p-8 border border-sage-800 shadow-xl">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-sage-800">
+                        <div>
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sage-800 border border-sage-700 text-emerald-300 text-xs font-medium mb-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>Clinician Telehealth Studio • Auto-Hours Tracking Active</span>
+                            </div>
+                            <h2 class="font-serif text-2xl sm:text-3xl text-white font-semibold">Linda’s Backend Video Session Room</h2>
+                            <p class="text-xs sm:text-sm text-sage-300 mt-1">
+                                Connect with clients waiting in the public room. Elapsed video chat time is automatically logged to your Hours Tracker when you end the session.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <button onclick="copyClientInviteFromPortal()" class="bg-sage-800 hover:bg-sage-700 text-sage-100 border border-sage-600 px-4 py-2.5 rounded-xl text-xs font-semibold transition flex items-center gap-2">
+                                <i data-lucide="link" class="w-4 h-4 text-emerald-400"></i>
+                                <span id="portal-copy-invite-label">Copy Client Invite Link</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mt-6">
+
+                        <!-- Left 4 Cols: Clinician Session Controls & Notes -->
+                        <div class="lg:col-span-4 bg-sage-800/70 border border-sage-700 rounded-2xl p-5 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold uppercase tracking-wider text-sage-300">Session Controls</span>
+                                <span id="portal-conn-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sage-700 text-sage-200">
+                                    Standby
+                                </span>
+                            </div>
+
+                            <!-- Select Scheduled Appointment -->
+                            <div>
+                                <label for="portal-appt-select" class="block text-xs font-semibold text-sage-200 mb-1">
+                                    Load From Scheduled Appointment
+                                </label>
+                                <select id="portal-appt-select" onchange="loadAppointmentIntoStudio(this.value)" class="w-full px-3 py-2.5 rounded-xl bg-sage-900 border border-sage-600 text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                                    <option value="">-- Select Appointment or Enter Custom Below --</option>
+                                </select>
+                            </div>
+
+                            <!-- Client Name (for Hours Tracker attribution) -->
+                            <div>
+                                <label for="portal-client-name" class="block text-xs font-semibold text-sage-200 mb-1">
+                                    Client Name (Logged to Hours Tracker)
+                                </label>
+                                <input
+                                    type="text"
+                                    id="portal-client-name"
+                                    placeholder="e.g., Alex Morgan"
+                                    class="w-full px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                >
+                            </div>
+
+                            <!-- Session Room Code -->
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="portal-room-code" class="block text-xs font-semibold text-sage-200">
+                                        Session Room Code <span class="text-emerald-400">*</span>
+                                    </label>
+                                    <button type="button" onclick="generatePortalRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
+                                        Generate Code
+                                    </button>
+                                </div>
+                                <input
+                                    type="text"
+                                    id="portal-room-code"
+                                    placeholder="e.g., LINDA-402"
+                                    class="w-full px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                >
+                            </div>
+
+                            <!-- Private Clinical Session Notes (Saved to Hours Log) -->
+                            <div>
+                                <label for="portal-session-notes" class="block text-xs font-semibold text-sage-200 mb-1">
+                                    Private Clinical Notes (Saved with Hours)
+                                </label>
+                                <textarea
+                                    id="portal-session-notes"
+                                    rows="3"
+                                    placeholder="Private notes for your hour log (not visible to client)..."
+                                    class="w-full px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white placeholder-sage-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                ></textarea>
+                            </div>
+
+                            <!-- Camera & Join Buttons -->
+                            <div class="space-y-2 pt-1">
+                                <button
+                                    type="button"
+                                    onclick="startPortalCamera()"
+                                    class="w-full bg-sage-700 hover:bg-sage-600 text-white font-medium py-2.5 px-4 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-2 border border-sage-500"
+                                >
+                                    <i data-lucide="camera" class="w-4 h-4"></i>
+                                    <span id="portal-cam-btn-text">1. Enable Camera &amp; Mic</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onclick="joinPortalVideoRoom()"
+                                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2"
+                                >
+                                    <i data-lucide="video" class="w-4 h-4"></i>
+                                    <span id="portal-join-btn-text">2. Start / Join Session Room</span>
+                                </button>
+                            </div>
+
+                            <!-- Live Tracked Time Indicator -->
+                            <div class="bg-sage-900/90 border border-sage-700 rounded-xl p-3 flex items-center justify-between text-xs">
+                                <span class="text-sage-300">Billable / Tracked Time:</span>
+                                <span id="portal-tracked-time-readout" class="font-mono font-semibold text-emerald-300">00:00 (0.00 hrs)</span>
+                            </div>
+                        </div>
+
+                        <!-- Right 8 Cols: Video Stage & In-Session Chat -->
+                        <div class="lg:col-span-8 space-y-4">
+                            <div id="portal-video-stage" class="relative bg-black rounded-3xl overflow-hidden border border-sage-700 shadow-2xl aspect-video flex flex-col justify-between">
+                                <!-- Top Bar -->
+                                <div class="relative z-20 flex items-center justify-between px-5 py-3 bg-gradient-to-b from-black/75 via-black/30 to-transparent">
+                                    <div class="flex items-center gap-2">
+                                        <span id="portal-live-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                                        <span id="portal-stage-title" class="text-xs sm:text-sm font-medium text-white">
+                                            Clinician Studio • Linda Milewski, LCSW
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span id="portal-call-timer" class="font-mono text-xs sm:text-sm bg-black/60 text-emerald-300 px-3 py-1 rounded-lg border border-white/10">
+                                            00:00
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Remote Client Video -->
+                                <video id="portal-remote-video" autoplay playsinline class="hidden absolute inset-0 w-full h-full object-cover z-0"></video>
+
+                                <div id="portal-remote-badge" class="hidden absolute bottom-20 left-5 z-20 bg-black/65 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-white/15">
+                                    Connected Client
+                                </div>
+
+                                <!-- Waiting Overlay -->
+                                <div id="portal-waiting-overlay" class="relative z-10 flex-1 flex flex-col items-center justify-center text-center p-6">
+                                    <div class="w-16 h-16 rounded-full bg-sage-800 border border-sage-600 flex items-center justify-center mb-4">
+                                        <i data-lucide="video" class="w-7 h-7 text-emerald-300"></i>
+                                    </div>
+                                    <h4 id="portal-waiting-title" class="font-serif text-xl text-white font-medium">
+                                        Clinician Video Studio Ready
+                                    </h4>
+                                    <p id="portal-waiting-sub" class="text-xs sm:text-sm text-sage-300 max-w-md mt-1.5">
+                                        Select an appointment or enter a room code on the left, then click <strong>"Start / Join Session Room"</strong>.
+                                    </p>
+                                </div>
+
+                                <!-- Local Clinician PiP -->
+                                <div class="absolute bottom-20 right-4 sm:right-5 z-20 w-32 sm:w-44 aspect-video bg-sage-900 rounded-2xl overflow-hidden border-2 border-sage-500 shadow-xl">
+                                    <video id="portal-local-video" autoplay playsinline muted class="w-full h-full object-cover mirror-video hidden"></video>
+                                    <div id="portal-local-placeholder" class="w-full h-full flex flex-col items-center justify-center bg-sage-800 text-sage-300 p-2 text-center">
+                                        <i data-lucide="user" class="w-5 h-5 mb-1 opacity-70"></i>
+                                        <span class="text-[10px]">Linda (You)</span>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Controls -->
+                                <div class="relative z-20 px-4 py-3.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent flex items-center justify-center gap-3">
+                                    <button id="portal-mic-btn" type="button" onclick="togglePortalMic()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                        <i data-lucide="mic" class="w-5 h-5"></i>
+                                    </button>
+                                    <button id="portal-cam-toggle-btn" type="button" onclick="togglePortalCam()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                        <i data-lucide="video" class="w-5 h-5"></i>
+                                    </button>
+                                    <button id="portal-screen-btn" type="button" onclick="togglePortalScreenShare()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                        <i data-lucide="monitor-up" class="w-5 h-5"></i>
+                                    </button>
+                                    <button type="button" onclick="endAndLogPortalSession()" class="px-5 h-11 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition">
+                                        <i data-lucide="phone-off" class="w-4 h-4"></i>
+                                        <span>End &amp; Log Hours</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Two-Way Client Chat Box -->
+                            <div class="bg-sage-800/80 border border-sage-700 rounded-2xl p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-sage-200 flex items-center gap-1.5">
+                                        <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                                        <span>In-Session Client Chat</span>
+                                    </span>
+                                    <span class="text-[11px] text-sage-300">Messages shared live with client in room</span>
+                                </div>
+                                <div id="portal-chat-messages" class="h-28 overflow-y-auto space-y-2 pr-1 text-xs">
+                                    <div class="text-sage-300 italic text-[11px]">Chat ready. Messages sent here appear in the client's waiting/session room.</div>
+                                </div>
+                                <form onsubmit="sendPortalChatMessage(event)" class="flex gap-2">
+                                    <input
+                                        type="text"
+                                        id="portal-chat-input"
+                                        placeholder="Send a message or link to your client..."
+                                        class="flex-1 px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white placeholder-sage-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                    >
+                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition">
+                                        Send
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 TAB 3: CLINICAL HOURS TRACKER (BASED ON VIDEO CHAT USAGE)
+                 ================================================================= -->
+            <section id="portal-tab-hours" class="hidden space-y-8">
+                <!-- Header & Actions -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                    <div>
+                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Clinical Video Hours Tracker</h2>
+                        <p class="text-xs sm:text-sm text-sage-600 mt-1">
+                            Automatically records your telehealth video session durations. You can also log manual sessions or export to CSV.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="openManualHoursModal()" class="bg-sage-600 hover:bg-sage-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>Log Manual Hours</span>
+                        </button>
+                        <button onclick="exportHoursCSV()" class="bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-sage-700"></i>
+                            <span>Export Hours CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div class="bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-sage-500">Total Logged Hours</span>
+                        <p id="kpi-total-hours" class="font-serif text-3xl font-semibold text-sage-900 mt-2">0.00 hrs</p>
+                        <span id="kpi-total-minutes" class="text-xs text-sage-600 mt-1 block">0 total minutes</span>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-sage-500">This Month's Hours</span>
+                        <p id="kpi-month-hours" class="font-serif text-3xl font-semibold text-emerald-700 mt-2">0.00 hrs</p>
+                        <span class="text-xs text-sage-600 mt-1 block">Current calendar month</span>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-sage-500">Completed Sessions</span>
+                        <p id="kpi-total-sessions" class="font-serif text-3xl font-semibold text-sage-900 mt-2">0</p>
+                        <span class="text-xs text-sage-600 mt-1 block">Video &amp; manual logs</span>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-sage-500">Avg Session Length</span>
+                        <p id="kpi-avg-duration" class="font-serif text-3xl font-semibold text-sage-900 mt-2">0 min</p>
+                        <span class="text-xs text-sage-600 mt-1 block">Per logged session</span>
+                    </div>
+                </div>
+
+                <!-- Hours Log Table -->
+                <div class="bg-white rounded-3xl border border-sand-200 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-sand-200 flex items-center justify-between">
+                        <h3 class="font-serif text-xl font-semibold text-sage-900">Session Hour Logs</h3>
+                        <span class="text-xs text-sage-600">Automatically populated from Clinician Video Studio</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-sand-50 border-b border-sand-200 text-[11px] font-semibold uppercase tracking-wider text-sage-600">
+                                    <th class="py-3.5 px-6">Date &amp; Time</th>
+                                    <th class="py-3.5 px-6">Client Name</th>
+                                    <th class="py-3.5 px-6">Room Code</th>
+                                    <th class="py-3.5 px-6">Duration</th>
+                                    <th class="py-3.5 px-6">Decimal Hours</th>
+                                    <th class="py-3.5 px-6">Source</th>
+                                    <th class="py-3.5 px-6">Notes</th>
+                                    <th class="py-3.5 px-6 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hours-table-body" class="divide-y divide-sand-200 text-sm text-sage-800"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 1: CREATE / EDIT APPOINTMENT
+         ===================================================================== -->
+    <div id="appointment-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-sand-200 pb-4">
+                <h3 id="appt-modal-title" class="font-serif text-2xl font-semibold text-sage-900">Schedule Appointment</h3>
+                <button onclick="closeAppointmentModal()" class="text-sage-500 hover:text-sage-900">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="appointment-form" onsubmit="saveAppointmentForm(event)" class="space-y-4">
+                <input type="hidden" id="appt-id">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Client Name *</label>
+                        <input type="text" id="appt-client" required placeholder="e.g., Alex Morgan" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Client Email</label>
+                        <input type="email" id="appt-email" placeholder="alex@example.com" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Date *</label>
+                        <input type="date" id="appt-date" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Start Time *</label>
+                        <input type="time" id="appt-time" required value="10:00" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Duration (Min)</label>
+                        <select id="appt-duration" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                            <option value="15">15 mins (Consult)</option>
+                            <option value="50" selected>50 mins (Standard)</option>
+                            <option value="60">60 mins</option>
+                            <option value="75">75 mins (Extended)</option>
+                            <option value="90">90 mins</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Service Type</label>
+                        <select id="appt-service" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                            <option value="Individual Psychotherapy">Individual Psychotherapy</option>
+                            <option value="Anxiety & Burnout Recovery">Anxiety &amp; Burnout Recovery</option>
+                            <option value="Life Transitions & Relationships">Life Transitions &amp; Relationships</option>
+                            <option value="Free 15-Minute Consultation">Free 15-Minute Consultation</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Telehealth Room Code</label>
+                        <input type="text" id="appt-room" required placeholder="LINDA-101" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 font-mono text-sm uppercase">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Appointment Notes</label>
+                    <textarea id="appt-notes" rows="2" placeholder="Optional session preparation notes..." class="w-full px-3.5 py-2 rounded-xl bg-sand-50 border border-sand-300 text-sm"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
+                    <button type="button" onclick="closeAppointmentModal()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-700 text-xs sm:text-sm font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-sage-600 hover:bg-sage-700 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition">
+                        Save Appointment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 2: MANUAL HOURS LOG ENTRY
+         ===================================================================== -->
+    <div id="manual-hours-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-sand-200 pb-4">
+                <h3 class="font-serif text-2xl font-semibold text-sage-900">Log Clinical Session Hours</h3>
+                <button onclick="closeManualHoursModal()" class="text-sage-500 hover:text-sage-900">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveManualHoursForm(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Client Name *</label>
+                    <input type="text" id="manual-client" required placeholder="e.g., Alex Morgan" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Date *</label>
+                        <input type="date" id="manual-date" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Duration (Minutes) *</label>
+                        <input type="number" id="manual-minutes" required min="1" max="480" value="50" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Room Code / Reference</label>
+                    <input type="text" id="manual-room" placeholder="e.g., LINDA-204 or In-Office" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Session Notes</label>
+                    <textarea id="manual-notes" rows="2" placeholder="Clinical hour log notes..." class="w-full px-3.5 py-2 rounded-xl bg-sand-50 border border-sand-300 text-sm"></textarea>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
+                    <button type="button" onclick="closeManualHoursModal()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-700 text-xs sm:text-sm font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-sage-600 hover:bg-sage-700 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition">
+                        Save Hours Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Portal Notification Toast -->
+    <div id="portal-toast" class="hidden fixed bottom-5 right-5 z-50 bg-sage-900 text-white text-xs sm:text-sm font-medium px-5 py-3.5 rounded-2xl shadow-xl border border-sage-700 flex items-center gap-2.5">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <span id="portal-toast-text">Saved!</span>
+    </div>
+
+    <!-- =====================================================================
+         PORTAL APPLICATION JAVASCRIPT
+         ===================================================================== -->
+    <script>
+        const PORTAL_TOKEN_KEY = "linda_portal_auth_token";
+        const LOCAL_APPTS_KEY = "linda_portal_appointments_v1";
+        const LOCAL_HOURS_KEY = "linda_portal_hours_v1";
+
+        let authToken = sessionStorage.getItem(PORTAL_TOKEN_KEY) || localStorage.getItem(PORTAL_TOKEN_KEY) || null;
+        let appointments = [];
+        let hoursLogs = [];
+
+        // Calendar State
+        let currentCalDate = new Date();
+        let selectedDateFilter = null; // YYYY-MM-DD or null
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            if (authToken) {
+                unlockPortalDashboard();
+            }
+        });
+
+        function showPortalToast(msg) {
+            const toast = document.getElementById('portal-toast');
+            document.getElementById('portal-toast-text').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3800);
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[m]);
+        }
+
+        // =====================================================================
+        // AUTHENTICATION (lmilewski / chrysalis63)
+        // =====================================================================
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errBox = document.getElementById('login-error');
+            errBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.token;
+                    sessionStorage.setItem(PORTAL_TOKEN_KEY, authToken);
+                    localStorage.setItem(PORTAL_TOKEN_KEY, authToken);
+                    unlockPortalDashboard();
+                    return;
+                }
+            } catch {
+                // Fallback if running static file locally without Worker route
+            }
+
+            if (username.toLowerCase() === 'lmilewski' && password === 'chrysalis63') {
+                authToken = btoa('lmilewski:chrysalis63');
+                sessionStorage.setItem(PORTAL_TOKEN_KEY, authToken);
+                localStorage.setItem(PORTAL_TOKEN_KEY, authToken);
+                unlockPortalDashboard();
+            } else {
+                errBox.classList.remove('hidden');
+            }
+        });
+
+        async function unlockPortalDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('portal-dashboard').classList.remove('hidden');
+            await loadPortalData();
+            renderCalendar();
+            renderAppointmentsList();
+            populateStudioAppointmentDropdown();
+            renderHoursTracker();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function logoutPortal() {
+            if (portalSignaling) {
+                endAndLogPortalSession();
+            }
+            authToken = null;
+            sessionStorage.removeItem(PORTAL_TOKEN_KEY);
+            localStorage.removeItem(PORTAL_TOKEN_KEY);
+            document.getElementById('portal-dashboard').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-password').value = '';
+        }
+
+        function switchPortalTab(tabName) {
+            ['calendar', 'video', 'hours'].forEach((t) => {
+                const section = document.getElementById(`portal-tab-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabName) {
+                    section.classList.remove('hidden');
+                    btn.className = "portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm";
+                } else {
+                    section.classList.add('hidden');
+                    btn.className = "portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white";
+                }
+            });
+            if (tabName === 'hours') renderHoursTracker();
+            if (tabName === 'video') populateStudioAppointmentDropdown();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // =====================================================================
+        // DATA SYNC (Cloudflare Durable Object API + localStorage Mirror)
+        // =====================================================================
+        async function loadPortalData() {
+            // Load local cache first
+            try {
+                appointments = JSON.parse(localStorage.getItem(LOCAL_APPTS_KEY) || '[]');
+                hoursLogs = JSON.parse(localStorage.getItem(LOCAL_HOURS_KEY) || '[]');
+            } catch {
+                appointments = [];
+                hoursLogs = [];
+            }
+
+            // Sync from Cloudflare Worker Durable Object storage if available
+            try {
+                const [apptRes, hoursRes] = await Promise.all([
+                    fetch('/api/appointments', { headers: { Authorization: `Bearer ${authToken}` } }),
+                    fetch('/api/hours', { headers: { Authorization: `Bearer ${authToken}` } })
+                ]);
+                if (apptRes.ok) {
+                    const data = await apptRes.json();
+                    if (Array.isArray(data.appointments)) {
+                        appointments = data.appointments;
+                        localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
+                    }
+                }
+                if (hoursRes.ok) {
+                    const data = await hoursRes.json();
+                    if (Array.isArray(data.hours)) {
+                        hoursLogs = data.hours;
+                        localStorage.setItem(LOCAL_HOURS_KEY, JSON.stringify(hoursLogs));
+                    }
+                }
+            } catch {
+                // Offline/local fallback uses localStorage
+            }
+        }
+
+        async function persistAppointment(appointment) {
+            const idx = appointments.findIndex((a) => a.id === appointment.id);
+            if (idx >= 0) appointments[idx] = appointment;
+            else appointments.push(appointment);
+            localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
+
+            try {
+                await fetch('/api/appointments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ appointment })
+                });
+            } catch {}
+        }
+
+        async function removeAppointmentById(id) {
+            appointments = appointments.filter((a) => a.id !== id);
+            localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
+            try {
+                await fetch(`/api/appointments?id=${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+            } catch {}
+        }
+
+        async function persistHoursEntry(entry) {
+            const idx = hoursLogs.findIndex((h) => h.id === entry.id);
+            if (idx >= 0) hoursLogs[idx] = entry;
+            else hoursLogs.unshift(entry);
+            localStorage.setItem(LOCAL_HOURS_KEY, JSON.stringify(hoursLogs));
+
+            try {
+                await fetch('/api/hours', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ entry })
+                });
+            } catch {}
+        }
+
+        async function removeHoursEntryById(id) {
+            hoursLogs = hoursLogs.filter((h) => h.id !== id);
+            localStorage.setItem(LOCAL_HOURS_KEY, JSON.stringify(hoursLogs));
+            try {
+                await fetch(`/api/hours?id=${encodeURIComponent(id)}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${authToken}` }
+                });
+            } catch {}
+            renderHoursTracker();
+        }
+
+        // =====================================================================
+        // CALENDAR & APPOINTMENT MANAGEMENT
+        // =====================================================================
+        function formatYMD(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function changeCalendarMonth(delta) {
+            currentCalDate = new Date(currentCalDate.getFullYear(), currentCalDate.getMonth() + delta, 1);
+            renderCalendar();
+        }
+
+        function goToTodayCalendar() {
+            currentCalDate = new Date();
+            selectedDateFilter = formatYMD(new Date());
+            renderCalendar();
+            renderAppointmentsList();
+        }
+
+        function filterByDate(ymd) {
+            selectedDateFilter = (selectedDateFilter === ymd) ? null : ymd;
+            renderCalendar();
+            renderAppointmentsList();
+        }
+
+        function clearDateFilter() {
+            selectedDateFilter = null;
+            renderCalendar();
+            renderAppointmentsList();
+        }
+
+        function renderCalendar() {
+            const year = currentCalDate.getFullYear();
+            const month = currentCalDate.getMonth();
+            const monthNames = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            document.getElementById('calendar-month-label').textContent = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const todayYMD = formatYMD(new Date());
+
+            const grid = document.getElementById('calendar-days-grid');
+            grid.innerHTML = '';
+
+            // Blank leading cells
+            for (let i = 0; i < firstDay; i++) {
+                const empty = document.createElement('div');
+                empty.className = "h-20 rounded-2xl bg-sand-50/40";
+                grid.appendChild(empty);
+            }
+
+            // Day cells
+            for (let day = 1; day <= daysInMonth; day++) {
+                const ymd = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayAppts = appointments.filter((a) => a.date === ymd);
+                const isToday = ymd === todayYMD;
+                const isSelected = ymd === selectedDateFilter;
+
+                const cell = document.createElement('button');
+                cell.type = "button";
+                cell.onclick = () => filterByDate(ymd);
+                cell.className = `h-20 p-2 rounded-2xl border text-left flex flex-col justify-between transition ${
+                    isSelected
+                        ? 'bg-sage-800 text-white border-sage-900 shadow-md'
+                        : isToday
+                        ? 'bg-sage-50 border-sage-400 text-sage-900'
+                        : 'bg-white hover:bg-sand-50 border-sand-200 text-sage-900'
+                }`;
+
+                let badgesHtml = '';
+                if (dayAppts.length > 0) {
+                    const firstAppt = dayAppts[0];
+                    badgesHtml = `
+                        <div class="space-y-0.5 w-full overflow-hidden">
+                            <div class="text-[10px] truncate px-1.5 py-0.5 rounded ${isSelected ? 'bg-emerald-500 text-white' : 'bg-sage-100 text-sage-800'} font-medium">
+                                ${escapeHtml(firstAppt.time)} ${escapeHtml(firstAppt.clientName)}
+                            </div>
+                            ${dayAppts.length > 1 ? `<div class="text-[10px] font-semibold ${isSelected ? 'text-emerald-200' : 'text-sage-600'} pl-1">+${dayAppts.length - 1} more</div>` : ''}
+                        </div>
+                    `;
+                }
+
+                cell.innerHTML = `
+                    <div class="flex items-center justify-between w-full">
+                        <span class="text-xs font-semibold ${isToday && !isSelected ? 'bg-sage-600 text-white px-1.5 py-0.5 rounded-md' : ''}">${day}</span>
+                        ${dayAppts.length > 0 ? `<span class="w-2 h-2 rounded-full ${isSelected ? 'bg-emerald-300' : 'bg-emerald-500'}"></span>` : ''}
+                    </div>
+                    ${badgesHtml}
+                `;
+                grid.appendChild(cell);
+            }
+        }
+
+        function renderAppointmentsList() {
+            const container = document.getElementById('appointments-list-container');
+            const heading = document.getElementById('agenda-heading');
+            const subheading = document.getElementById('agenda-subheading');
+            const showAllBtn = document.getElementById('btn-show-all-dates');
+
+            let list = [...appointments].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+
+            if (selectedDateFilter) {
+                list = list.filter((a) => a.date === selectedDateFilter);
+                heading.textContent = `Appointments for ${selectedDateFilter}`;
+                subheading.textContent = `${list.length} scheduled session(s)`;
+                showAllBtn.classList.remove('hidden');
+            } else {
+                heading.textContent = "All Scheduled Appointments";
+                subheading.textContent = `${list.length} total session(s) scheduled`;
+                showAllBtn.classList.add('hidden');
+            }
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 space-y-2">
+                        <p class="text-sm font-medium">No appointments scheduled ${selectedDateFilter ? 'for this date' : 'yet'}.</p>
+                        <button onclick="openAppointmentModal('${selectedDateFilter || ''}')" class="text-xs font-semibold text-sage-700 underline hover:text-sage-900">
+                            + Schedule an Appointment
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = list.map((appt) => `
+                <div class="p-4 rounded-2xl bg-sand-50 border border-sand-200 hover:border-sage-300 transition space-y-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <span class="text-[11px] font-semibold uppercase tracking-wider text-sage-600 block">
+                                ${escapeHtml(appt.date)} • ${escapeHtml(appt.time)} (${escapeHtml(appt.duration)} min)
+                            </span>
+                            <h4 class="font-serif text-lg font-semibold text-sage-900">${escapeHtml(appt.clientName)}</h4>
+                            <p class="text-xs text-sage-700">${escapeHtml(appt.service)}</p>
+                        </div>
+                        <span class="font-mono text-xs font-semibold bg-sage-100 text-sage-800 px-2.5 py-1 rounded-lg border border-sage-200">
+                            ${escapeHtml(appt.roomCode)}
+                        </span>
+                    </div>
+                    ${appt.notes ? `<p class="text-xs text-sage-600 italic bg-white p-2.5 rounded-xl border border-sand-200">${escapeHtml(appt.notes)}</p>` : ''}
+                    <div class="pt-2 border-t border-sand-200 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="launchAppointmentVideo('${appt.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                <span>Launch Video</span>
+                            </button>
+                            <button onclick="downloadSingleAppointmentICS('${appt.id}')" title="Download .ics Calendar File" class="bg-white hover:bg-sand-100 text-sage-800 border border-sand-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+                                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+                                <span>.ics</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="openAppointmentModal('', '${appt.id}')" class="text-xs text-sage-600 hover:text-sage-900 px-2 py-1">Edit</button>
+                            <button onclick="deleteAppointment('${appt.id}')" class="text-xs text-rose-600 hover:text-rose-800 px-2 py-1">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openAppointmentModal(defaultDate = '', editId = '') {
+            const modal = document.getElementById('appointment-modal');
+            const title = document.getElementById('appt-modal-title');
+            const form = document.getElementById('appointment-form');
+            form.reset();
+
+            if (editId) {
+                const appt = appointments.find((a) => a.id === editId);
+                if (appt) {
+                    title.textContent = "Edit Appointment";
+                    document.getElementById('appt-id').value = appt.id;
+                    document.getElementById('appt-client').value = appt.clientName;
+                    document.getElementById('appt-email').value = appt.clientEmail || '';
+                    document.getElementById('appt-date').value = appt.date;
+                    document.getElementById('appt-time').value = appt.time;
+                    document.getElementById('appt-duration').value = appt.duration;
+                    document.getElementById('appt-service').value = appt.service;
+                    document.getElementById('appt-room').value = appt.roomCode;
+                    document.getElementById('appt-notes').value = appt.notes || '';
+                }
+            } else {
+                title.textContent = "Schedule New Appointment";
+                document.getElementById('appt-id').value = '';
+                document.getElementById('appt-date').value = defaultDate || selectedDateFilter || formatYMD(new Date());
+                document.getElementById('appt-room').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeAppointmentModal() {
+            document.getElementById('appointment-modal').classList.add('hidden');
+        }
+
+        async function saveAppointmentForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('appt-id').value || crypto.randomUUID();
+            const appointment = {
+                id,
+                clientName: document.getElementById('appt-client').value.trim(),
+                clientEmail: document.getElementById('appt-email').value.trim(),
+                date: document.getElementById('appt-date').value,
+                time: document.getElementById('appt-time').value,
+                duration: parseInt(document.getElementById('appt-duration').value, 10) || 50,
+                service: document.getElementById('appt-service').value,
+                roomCode: document.getElementById('appt-room').value.trim().toUpperCase(),
+                notes: document.getElementById('appt-notes').value.trim()
+            };
+
+            await persistAppointment(appointment);
+            closeAppointmentModal();
+            renderCalendar();
+            renderAppointmentsList();
+            populateStudioAppointmentDropdown();
+            showPortalToast(`Saved appointment for ${appointment.clientName}`);
+        }
+
+        async function deleteAppointment(id) {
+            if (!confirm("Remove this appointment from your calendar?")) return;
+            await removeAppointmentById(id);
+            renderCalendar();
+            renderAppointmentsList();
+            populateStudioAppointmentDropdown();
+            showPortalToast("Appointment deleted.");
+        }
+
+        // =====================================================================
+        // .ICS CALENDAR EXPORT & IMPORT FUNCTIONALITY (RFC 5545)
+        // =====================================================================
+        function toICSDateTime(dateStr, timeStr, addMinutes = 0) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const [hh, mm] = (timeStr || '10:00').split(':').map(Number);
+            const dt = new Date(y, m - 1, d, hh, mm + addMinutes, 0);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${dt.getFullYear()}${pad(dt.getMonth() + 1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
+        }
+
+        function buildICSContent(apptsArray) {
+            const lines = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//Linda Milewski LCSW//Practice Portal//EN",
+                "CALSCALE:GREGORIAN",
+                "METHOD:PUBLISH"
+            ];
+
+            const nowStamp = toICSDateTime(formatYMD(new Date()), "12:00", 0) + "Z";
+
+            apptsArray.forEach((appt) => {
+                const dtStart = toICSDateTime(appt.date, appt.time, 0);
+                const dtEnd = toICSDateTime(appt.date, appt.time, Number(appt.duration) || 50);
+                const inviteUrl = `${window.location.origin}/index.html?room=${encodeURIComponent(appt.roomCode)}#telehealth`;
+                const desc = `Service: ${appt.service}\\nRoom Code: ${appt.roomCode}\\nJoin Video Session: ${inviteUrl}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`;
+
+                lines.push(
+                    "BEGIN:VEVENT",
+                    `UID:${appt.id}@lindamilewskilcsw.com`,
+                    `DTSTAMP:${nowStamp}`,
+                    `DTSTART:${dtStart}`,
+                    `DTEND:${dtEnd}`,
+                    `SUMMARY:Therapy Session - ${appt.clientName} (${appt.roomCode})`,
+                    `DESCRIPTION:${desc}`,
+                    `LOCATION:${inviteUrl}`,
+                    "END:VEVENT"
+                );
+            });
+
+            lines.push("END:VCALENDAR");
+            return lines.join("\r\n");
+        }
+
+        function triggerICSDownload(filename, content) {
+            const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadSingleAppointmentICS(id) {
+            const appt = appointments.find((a) => a.id === id);
+            if (!appt) return;
+            const ics = buildICSContent([appt]);
+            const safeClient = appt.clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            triggerICSDownload(`session_${safeClient}_${appt.date}.ics`, ics);
+            showPortalToast(`Downloaded .ics for ${appt.clientName}`);
+        }
+
+        function exportAllAppointmentsICS() {
+            if (appointments.length === 0) {
+                alert("No appointments scheduled yet to export.");
+                return;
+            }
+            const ics = buildICSContent(appointments);
+            triggerICSDownload(`linda_milewski_lcsw_calendar.ics`, ics);
+            showPortalToast(`Exported ${appointments.length} appointment(s) to .ics`);
+        }
+
+        function importICSFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                const blocks = text.split("BEGIN:VEVENT").slice(1);
+                let importedCount = 0;
+
+                for (const block of blocks) {
+                    const summaryMatch = block.match(/SUMMARY:(.*)/i);
+                    const dtStartMatch = block.match(/DTSTART[^:]*:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/i);
+                    const dtEndMatch = block.match(/DTEND[^:]*:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})/i);
+
+                    if (dtStartMatch) {
+                        const date = `${dtStartMatch[1]}-${dtStartMatch[2]}-${dtStartMatch[3]}`;
+                        const time = `${dtStartMatch[4]}:${dtStartMatch[5]}`;
+                        let duration = 50;
+                        if (dtEndMatch) {
+                            const startMins = parseInt(dtStartMatch[4], 10) * 60 + parseInt(dtStartMatch[5], 10);
+                            const endMins = parseInt(dtEndMatch[4], 10) * 60 + parseInt(dtEndMatch[5], 10);
+                            if (endMins > startMins) duration = endMins - startMins;
+                        }
+                        const rawSummary = summaryMatch ? summaryMatch[1].trim() : "Imported Session";
+                        const clientName = rawSummary.replace(/^Therapy Session\s*-\s*/i, '').replace(/\s*\([A-Z0-9-]+\)$/, '').trim();
+                        const roomMatch = block.match(/LINDA-\d+/i);
+                        const roomCode = roomMatch ? roomMatch[0].toUpperCase() : `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+
+                        await persistAppointment({
+                            id: crypto.randomUUID(),
+                            clientName: clientName || "Imported Client",
+                            clientEmail: "",
+                            date,
+                            time,
+                            duration,
+                            service: "Individual Psychotherapy",
+                            roomCode,
+                            notes: "Imported from .ics calendar file"
+                        });
+                        importedCount++;
+                    }
+                }
+
+                renderCalendar();
+                renderAppointmentsList();
+                populateStudioAppointmentDropdown();
+                showPortalToast(`Imported ${importedCount} appointment(s) from .ics!`);
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // =====================================================================
+        // CLINICIAN BACKEND VIDEO STUDIO + AUTOMATIC HOURS LOGGING
+        // =====================================================================
+        let portalStream = null;
+        let portalScreenStream = null;
+        let portalSignaling = null;
+        let portalMicMuted = false;
+        let portalCamOff = false;
+        let portalScreenSharing = false;
+        let portalTimerInterval = null;
+        let portalSessionSeconds = 0;
+
+        function populateStudioAppointmentDropdown() {
+            const select = document.getElementById('portal-appt-select');
+            if (!select) return;
+            const sorted = [...appointments].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+            select.innerHTML = `<option value="">-- Select Scheduled Appointment or Enter Custom --</option>` +
+                sorted.map((a) => `<option value="${a.id}">${escapeHtml(a.date)} ${escapeHtml(a.time)} — ${escapeHtml(a.clientName)} (${escapeHtml(a.roomCode)})</option>`).join('');
+        }
+
+        function loadAppointmentIntoStudio(apptId) {
+            const appt = appointments.find((a) => a.id === apptId);
+            if (!appt) return;
+            document.getElementById('portal-client-name').value = appt.clientName;
+            document.getElementById('portal-room-code').value = appt.roomCode;
+            document.getElementById('portal-session-notes').value = appt.notes || `${appt.service} (${appt.duration} min scheduled)`;
+        }
+
+        function launchAppointmentVideo(apptId) {
+            switchPortalTab('video');
+            document.getElementById('portal-appt-select').value = apptId;
+            loadAppointmentIntoStudio(apptId);
+            showPortalToast("Loaded appointment into Clinician Video Studio.");
+        }
+
+        function generatePortalRoomCode() {
+            document.getElementById('portal-room-code').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+        }
+
+        function copyClientInviteFromPortal() {
+            const code = document.getElementById('portal-room-code').value.trim().toUpperCase();
+            if (!code) {
+                alert("Please enter or generate a Session Room Code first.");
+                return;
+            }
+            const inviteUrl = `${window.location.origin}/index.html?room=${encodeURIComponent(code)}#telehealth`;
+            navigator.clipboard?.writeText(inviteUrl);
+            showPortalToast(`Copied client invite link for room ${code}`);
+        }
+
+        async function startPortalCamera() {
+            const localVideo = document.getElementById('portal-local-video');
+            const placeholder = document.getElementById('portal-local-placeholder');
+            const btnText = document.getElementById('portal-cam-btn-text');
+
+            try {
+                if (portalStream) {
+                    portalStream.getTracks().forEach((t) => t.stop());
+                }
+                portalStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true
+                });
+                localVideo.srcObject = portalStream;
+                localVideo.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                localVideo.play().catch(() => {});
+
+                portalMicMuted = false;
+                portalCamOff = false;
+                btnText.textContent = "Camera & Mic Active ✓";
+                document.getElementById('portal-conn-badge').textContent = "Camera Ready";
+                return true;
+            } catch (err) {
+                alert("Could not access camera/microphone. Please check browser permissions.");
+                return false;
+            }
+        }
+
+        async function joinPortalVideoRoom() {
+            const roomCodeRaw = document.getElementById('portal-room-code').value.trim();
+            const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!cleanCode) {
+                alert("Please enter or select a Session Room Code first.");
+                document.getElementById('portal-room-code').focus();
+                return;
+            }
+
+            if (!portalStream) {
+                const ok = await startPortalCamera();
+                if (!ok) return;
+            }
+
+            if (portalSignaling) {
+                portalSignaling.disconnect();
+                portalSignaling = null;
+            }
+
+            const clientLabel = document.getElementById('portal-client-name').value.trim() || "Client";
+            document.getElementById('portal-stage-title').textContent = `Room: ${roomCodeRaw.toUpperCase()} • Session with ${clientLabel}`;
+            document.getElementById('portal-waiting-title').textContent = `Waiting for ${clientLabel} in Room ${roomCodeRaw.toUpperCase()}...`;
+            document.getElementById('portal-waiting-sub').textContent = "Session timer & automatic hours tracker will start as soon as the session is active.";
+
+            portalSignaling = new SignalingClient();
+
+            portalSignaling.onRemoteStream = (peerId, remoteStream, peerName) => {
+                const remoteVideo = document.getElementById('portal-remote-video');
+                const remoteBadge = document.getElementById('portal-remote-badge');
+
+                if (remoteVideo.srcObject !== remoteStream) {
+                    remoteVideo.srcObject = remoteStream;
+                }
+                remoteBadge.textContent = peerName || clientLabel;
+
+                remoteVideo.onloadedmetadata = () => {
+                    remoteVideo.classList.remove('hidden');
+                    document.getElementById('portal-waiting-overlay').classList.add('hidden');
+                    remoteBadge.classList.remove('hidden');
+                    remoteVideo.play().catch(() => {});
+                };
+            };
+
+            portalSignaling.onConnectionStateChange = (peerId, state, peerName) => {
+                if (state === "connected") {
+                    document.getElementById('portal-remote-video').classList.remove('hidden');
+                    document.getElementById('portal-waiting-overlay').classList.add('hidden');
+                    document.getElementById('portal-remote-badge').classList.remove('hidden');
+                    document.getElementById('portal-live-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                    document.getElementById('header-live-dot').classList.remove('hidden');
+                    document.getElementById('portal-conn-badge').textContent = "Live Session";
+                    appendPortalChat("System", `Connected live with ${peerName || clientLabel}. Hours tracking active.`);
+                }
+            };
+
+            portalSignaling.onPeerLeft = () => {
+                document.getElementById('portal-remote-video').classList.add('hidden');
+                document.getElementById('portal-waiting-overlay').classList.remove('hidden');
+                document.getElementById('portal-waiting-title').textContent = "Client Left Room";
+                appendPortalChat("System", "Client disconnected from the room.");
+            };
+
+            portalSignaling.onChatMessage = (sender, text) => {
+                appendPortalChat(sender, text);
+            };
+
+            try {
+                await portalSignaling.connect(cleanCode, portalStream, "Linda Milewski, LCSW");
+                document.getElementById('portal-join-btn-text').textContent = `Active in ${roomCodeRaw.toUpperCase()}`;
+                document.getElementById('portal-conn-badge').textContent = "In Room • Tracking Time";
+                startPortalSessionTimer();
+            } catch (err) {
+                console.warn("Signaling server offline or local preview, starting local session timer:", err);
+                document.getElementById('portal-join-btn-text').textContent = `Active in ${roomCodeRaw.toUpperCase()}`;
+                startPortalSessionTimer();
+            }
+        }
+
+        function startPortalSessionTimer() {
+            if (portalTimerInterval) clearInterval(portalTimerInterval);
+            portalSessionSeconds = 0;
+            const timerEl = document.getElementById('portal-call-timer');
+            const readoutEl = document.getElementById('portal-tracked-time-readout');
+
+            portalTimerInterval = setInterval(() => {
+                portalSessionSeconds++;
+                const mins = String(Math.floor(portalSessionSeconds / 60)).padStart(2, '0');
+                const secs = String(portalSessionSeconds % 60).padStart(2, '0');
+                const decHours = (portalSessionSeconds / 3600).toFixed(2);
+                timerEl.textContent = `${mins}:${secs}`;
+                readoutEl.textContent = `${mins}:${secs} (${decHours} hrs)`;
+            }, 1000);
+        }
+
+        async function endAndLogPortalSession() {
+            if (portalSignaling) {
+                portalSignaling.disconnect();
+                portalSignaling = null;
+            }
+            if (portalScreenStream) {
+                portalScreenStream.getTracks().forEach((t) => t.stop());
+                portalScreenStream = null;
+            }
+            if (portalStream) {
+                portalStream.getTracks().forEach((t) => t.stop());
+                portalStream = null;
+            }
+            if (portalTimerInterval) {
+                clearInterval(portalTimerInterval);
+                portalTimerInterval = null;
+            }
+
+            // Automatically log the video session duration if session ran for at least 5 seconds
+            if (portalSessionSeconds >= 5) {
+                const clientName = document.getElementById('portal-client-name').value.trim() || "Telehealth Client";
+                const roomCode = document.getElementById('portal-room-code').value.trim().toUpperCase() || "TELEHEALTH";
+                const notes = document.getElementById('portal-session-notes').value.trim() || "Logged automatically from Clinician Video Studio";
+
+                const entry = {
+                    id: crypto.randomUUID(),
+                    timestamp: new Date().toISOString(),
+                    date: formatYMD(new Date()),
+                    clientName,
+                    roomCode,
+                    durationSeconds: portalSessionSeconds,
+                    durationMinutes: Math.max(1, Math.round(portalSessionSeconds / 60)),
+                    decimalHours: Number((portalSessionSeconds / 3600).toFixed(2)),
+                    source: "Auto Video Chat",
+                    notes
+                };
+
+                await persistHoursEntry(entry);
+                renderHoursTracker();
+                showPortalToast(`Logged ${formatDurationMMSS(portalSessionSeconds)} (${entry.decimalHours} hrs) for ${clientName} to Hours Tracker!`);
+            }
+
+            portalSessionSeconds = 0;
+            document.getElementById('portal-call-timer').textContent = "00:00";
+            document.getElementById('portal-tracked-time-readout').textContent = "00:00 (0.00 hrs)";
+            document.getElementById('portal-local-video').classList.add('hidden');
+            document.getElementById('portal-local-placeholder').classList.remove('hidden');
+            document.getElementById('portal-remote-video').classList.add('hidden');
+            document.getElementById('portal-waiting-overlay').classList.remove('hidden');
+            document.getElementById('portal-waiting-title').textContent = "Session Ended & Logged";
+            document.getElementById('portal-cam-btn-text').textContent = "1. Enable Camera & Mic";
+            document.getElementById('portal-join-btn-text').textContent = "2. Start / Join Session Room";
+            document.getElementById('portal-conn-badge').textContent = "Standby";
+            document.getElementById('header-live-dot').classList.add('hidden');
+        }
+
+        function togglePortalMic() {
+            if (!portalStream) return;
+            portalMicMuted = !portalMicMuted;
+            portalStream.getAudioTracks().forEach((t) => (t.enabled = !portalMicMuted));
+        }
+
+        function togglePortalCam() {
+            if (!portalStream) return;
+            portalCamOff = !portalCamOff;
+            portalStream.getVideoTracks().forEach((t) => (t.enabled = !portalCamOff));
+        }
+
+        async function togglePortalScreenShare() {
+            if (!portalStream) return;
+            if (portalScreenSharing) {
+                if (portalScreenStream) portalScreenStream.getTracks().forEach((t) => t.stop());
+                const videoTrack = portalStream.getVideoTracks()[0];
+                if (portalSignaling && videoTrack) portalSignaling.replaceVideoTrack(videoTrack);
+                portalScreenSharing = false;
+                return;
+            }
+            try {
+                portalScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = portalScreenStream.getVideoTracks()[0];
+                if (portalSignaling) portalSignaling.replaceVideoTrack(screenTrack);
+                portalScreenSharing = true;
+                screenTrack.onended = () => togglePortalScreenShare();
+            } catch {}
+        }
+
+        function sendPortalChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('portal-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            appendPortalChat("Linda Milewski, LCSW", text);
+            if (portalSignaling) {
+                portalSignaling.sendChatMessage("Linda Milewski, LCSW", text);
+            }
+            input.value = '';
+        }
+
+        function appendPortalChat(sender, text) {
+            const box = document.getElementById('portal-chat-messages');
+            const div = document.createElement('div');
+            div.className = "bg-sage-900/80 p-2 rounded-xl border border-sage-700 text-xs";
+            div.innerHTML = `<strong class="text-emerald-300">${escapeHtml(sender)}:</strong> <span class="text-sand-100">${escapeHtml(text)}</span>`;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // =====================================================================
+        // CLINICAL HOURS TRACKER & CSV EXPORT
+        // =====================================================================
+        function formatDurationMMSS(totalSeconds) {
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            return `${mins}m ${String(secs).padStart(2, '0')}s`;
+        }
+
+        function renderHoursTracker() {
+            const tbody = document.getElementById('hours-table-body');
+            const totalSeconds = hoursLogs.reduce((acc, h) => acc + (Number(h.durationSeconds) || 0), 0);
+            const totalHours = (totalSeconds / 3600).toFixed(2);
+            const totalMinutes = Math.round(totalSeconds / 60);
+
+            const currentMonthPrefix = formatYMD(new Date()).slice(0, 7); // YYYY-MM
+            const monthSeconds = hoursLogs
+                .filter((h) => (h.date || '').startsWith(currentMonthPrefix))
+                .reduce((acc, h) => acc + (Number(h.durationSeconds) || 0), 0);
+            const monthHours = (monthSeconds / 3600).toFixed(2);
+
+            const avgMins = hoursLogs.length > 0 ? Math.round(totalMinutes / hoursLogs.length) : 0;
+
+            document.getElementById('kpi-total-hours').textContent = `${totalHours} hrs`;
+            document.getElementById('kpi-total-minutes').textContent = `${totalMinutes} total minutes`;
+            document.getElementById('kpi-month-hours').textContent = `${monthHours} hrs`;
+            document.getElementById('kpi-total-sessions').textContent = String(hoursLogs.length);
+            document.getElementById('kpi-avg-duration').textContent = `${avgMins} min`;
+
+            if (hoursLogs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-10 text-center text-sage-500 text-sm">
+                            No clinical hours logged yet. Start a session in the <strong>Clinician Video Studio</strong> or click <strong>Log Manual Hours</strong> above.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = hoursLogs.map((h) => `
+                <tr class="hover:bg-sand-50/80 transition">
+                    <td class="py-3.5 px-6 font-medium text-sage-900 whitespace-nowrap">${escapeHtml(h.date)}</td>
+                    <td class="py-3.5 px-6 font-semibold text-sage-900">${escapeHtml(h.clientName)}</td>
+                    <td class="py-3.5 px-6 font-mono text-xs text-sage-700">${escapeHtml(h.roomCode || '-')}</td>
+                    <td class="py-3.5 px-6 whitespace-nowrap">${formatDurationMMSS(Number(h.durationSeconds) || 0)}</td>
+                    <td class="py-3.5 px-6 font-mono font-semibold text-emerald-700">${Number(h.decimalHours || (h.durationSeconds / 3600)).toFixed(2)} hrs</td>
+                    <td class="py-3.5 px-6">
+                        <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${h.source === 'Auto Video Chat' ? 'bg-emerald-100 text-emerald-800' : 'bg-sand-200 text-sage-800'}">
+                            ${escapeHtml(h.source || 'Auto Video Chat')}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-6 text-xs text-sage-700 max-w-xs truncate">${escapeHtml(h.notes || '')}</td>
+                    <td class="py-3.5 px-6 text-right">
+                        <button onclick="removeHoursEntryById('${h.id}')" class="text-xs text-rose-600 hover:text-rose-800 font-medium">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openManualHoursModal() {
+            document.getElementById('manual-date').value = formatYMD(new Date());
+            document.getElementById('manual-client').value = '';
+            document.getElementById('manual-minutes').value = '50';
+            document.getElementById('manual-room').value = '';
+            document.getElementById('manual-notes').value = '';
+            document.getElementById('manual-hours-modal').classList.remove('hidden');
+        }
+
+        function closeManualHoursModal() {
+            document.getElementById('manual-hours-modal').classList.add('hidden');
+        }
+
+        async function saveManualHoursForm(e) {
+            e.preventDefault();
+            const mins = parseInt(document.getElementById('manual-minutes').value, 10) || 50;
+            const secs = mins * 60;
+            const entry = {
+                id: crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                date: document.getElementById('manual-date').value,
+                clientName: document.getElementById('manual-client').value.trim(),
+                roomCode: document.getElementById('manual-room').value.trim().toUpperCase() || "MANUAL",
+                durationSeconds: secs,
+                durationMinutes: mins,
+                decimalHours: Number((secs / 3600).toFixed(2)),
+                source: "Manual Entry",
+                notes: document.getElementById('manual-notes').value.trim()
+            };
+
+            await persistHoursEntry(entry);
+            closeManualHoursModal();
+            renderHoursTracker();
+            showPortalToast(`Logged ${mins} minutes (${entry.decimalHours} hrs) for ${entry.clientName}`);
+        }
+
+        function exportHoursCSV() {
+            if (hoursLogs.length === 0) {
+                alert("No hours logged yet to export.");
+                return;
+            }
+            const headers = ["Date", "Client Name", "Room Code", "Duration Seconds", "Duration Minutes", "Decimal Hours", "Source", "Notes"];
+            const rows = hoursLogs.map((h) => [
+                h.date,
+                `"${(h.clientName || '').replace(/"/g, '""')}"`,
+                `"${(h.roomCode || '').replace(/"/g, '""')}"`,
+                h.durationSeconds,
+                Math.round((h.durationSeconds || 0) / 60),
+                Number(h.decimalHours || (h.durationSeconds / 3600)).toFixed(2),
+                `"${(h.source || '').replace(/"/g, '""')}"`,
+                `"${(h.notes || '').replace(/"/g, '""')}"`
+            ]);
+            const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `linda_milewski_lcsw_hours_${formatYMD(new Date())}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

@@ -4,7 +4,8 @@
   "compatibility_date": "2026-10-17",
   "main": "worker.js",
   "assets": {
-    "directory": "./",
+    "directory": "./public",
+    "binding": "ASSETS",
     "not_found_handling": "none"
   },
   "durable_objects": {
@@ -27,6 +28,5 @@
       "invocation_logs": true,
       "persist": true
     }
-  },
+  }
 }
-

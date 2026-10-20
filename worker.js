@@ -1,5 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 
+const ADMIN_USER = "lmilewski";
+const ADMIN_PASS = "chrysalis63";
+
 export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -9,11 +12,18 @@ export class ChatRoom extends DurableObject {
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+
+    // Internal Durable Object storage API for Linda's Clinician Portal
+    if (url.pathname.startsWith("/internal/")) {
+      return this.handleInternalStorage(request, url);
+    }
+
+    // Standard WebRTC WebSocket Signaling
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected websocket", { status: 426 });
     }
 
-    const url = new URL(request.url);
     const clientName = url.searchParams.get("name") || "Connected Participant";
 
     const pair = new WebSocketPair();
@@ -54,6 +64,68 @@ export class ChatRoom extends DurableObject {
     );
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async handleInternalStorage(request, url) {
+    const jsonHeaders = { "Content-Type": "application/json" };
+
+    // Appointments CRUD
+    if (url.pathname === "/internal/appointments") {
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      if (request.method === "GET") {
+        return new Response(JSON.stringify({ appointments }), { headers: jsonHeaders });
+      }
+      if (request.method === "POST") {
+        const body = await request.json();
+        if (Array.isArray(body.appointments)) {
+          await this.ctx.storage.put("appointments", body.appointments);
+          return new Response(JSON.stringify({ appointments: body.appointments }), { headers: jsonHeaders });
+        }
+        const item = body.appointment;
+        const idx = appointments.findIndex((a) => a.id === item.id);
+        if (idx >= 0) {
+          appointments[idx] = item;
+        } else {
+          appointments.push(item);
+        }
+        await this.ctx.storage.put("appointments", appointments);
+        return new Response(JSON.stringify({ appointments }), { headers: jsonHeaders });
+      }
+      if (request.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        const filtered = appointments.filter((a) => a.id !== id);
+        await this.ctx.storage.put("appointments", filtered);
+        return new Response(JSON.stringify({ appointments: filtered }), { headers: jsonHeaders });
+      }
+    }
+
+    // Clinical Hours Tracker CRUD
+    if (url.pathname === "/internal/hours") {
+      const hours = (await this.ctx.storage.get("hours")) || [];
+      if (request.method === "GET") {
+        return new Response(JSON.stringify({ hours }), { headers: jsonHeaders });
+      }
+      if (request.method === "POST") {
+        const body = await request.json();
+        const entry = body.entry;
+        const idx = hours.findIndex((h) => h.id === entry.id);
+        if (idx >= 0) {
+          hours[idx] = entry;
+        } else {
+          hours.unshift(entry);
+        }
+        await this.ctx.storage.put("hours", hours);
+        return new Response(JSON.stringify({ hours }), { headers: jsonHeaders });
+      }
+      if (request.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        const filtered = hours.filter((h) => h.id !== id);
+        await this.ctx.storage.put("hours", filtered);
+        return new Response(JSON.stringify({ hours: filtered }), { headers: jsonHeaders });
+      }
+    }
+
+    return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: jsonHeaders });
   }
 
   async webSocketMessage(ws, message) {
@@ -110,12 +182,66 @@ export class ChatRoom extends DurableObject {
   }
 }
 
+function isAuthorized(request) {
+  const authHeader = request.headers.get("Authorization") || "";
+  const token = authHeader.replace("Bearer ", "").trim();
+  const expectedToken = btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
+  return token === expectedToken;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const jsonHeaders = { "Content-Type": "application/json" };
 
-    // 1. Endpoint to provide STUN + Cloudflare TURN credentials to the browser
-    if (url.pathname === "/turn/credentials") {
+    // 1. Clinician Login Endpoint
+    if (url.pathname === "/api/login" && request.method === "POST") {
+      try {
+        const { username, password } = await request.json();
+        if (
+          typeof username === "string" &&
+          username.trim().toLowerCase() === ADMIN_USER &&
+          password === ADMIN_PASS
+        ) {
+          const token = btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              token,
+              user: { username: ADMIN_USER, displayName: "Linda Milewski, LCSW" },
+            }),
+            { headers: jsonHeaders },
+          );
+        }
+        return new Response(
+          JSON.stringify({ ok: false, error: "Invalid username or password." }),
+          { status: 401, headers: jsonHeaders },
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Invalid request payload." }),
+          { status: 400, headers: jsonHeaders },
+        );
+      }
+    }
+
+    // 2. Protected Clinician Portal Storage Endpoints (Appointments & Hours)
+    if (url.pathname === "/api/appointments" || url.pathname === "/api/hours") {
+      if (!isAuthorized(request)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      const adminStoreId = env.CHAT_ROOM.idFromName("__LINDA_ADMIN_PORTAL_STORE__");
+      const stub = env.CHAT_ROOM.get(adminStoreId);
+      const targetPath = url.pathname.replace("/api/", "/internal/");
+      const internalUrl = new URL(targetPath + url.search, request.url);
+      return stub.fetch(new Request(internalUrl, request));
+    }
+
+    // 3. STUN + Cloudflare TURN Credentials Endpoint
+    if (url.pathname === "/turn/credentials" || url.pathname === "/ice-servers") {
       const defaultIceServers = [
         { urls: "stun:stun.cloudflare.com:3478" },
         { urls: "stun:stun.l.google.com:19302" },
@@ -137,22 +263,19 @@ export default {
           );
           if (cfRes.ok) {
             const data = await cfRes.json();
-            return new Response(JSON.stringify(data), {
-              headers: { "Content-Type": "application/json" },
-            });
+            return new Response(JSON.stringify(data), { headers: jsonHeaders });
           }
         } catch (err) {
           console.error("Failed to fetch Cloudflare TURN credentials:", err);
         }
       }
 
-      return new Response(
-        JSON.stringify({ iceServers: defaultIceServers }),
-        { headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ iceServers: defaultIceServers }), {
+        headers: jsonHeaders,
+      });
     }
 
-    // 2. WebSocket Signaling Endpoint
+    // 4. WebSocket Signaling Endpoint
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
       const roomId = url.searchParams.get("room") || "default";
       const id = env.CHAT_ROOM.idFromName(roomId);
@@ -160,7 +283,7 @@ export default {
       return stub.fetch(request);
     }
 
-    // 3. Static Assets Fallback (if using Workers Assets)
+    // 5. Static Assets Fallback
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }

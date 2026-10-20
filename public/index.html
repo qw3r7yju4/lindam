@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linda Milewski, LCSW | Compassionate Psychotherapy & Telehealth</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter for clean UI & Playfair Display for warm editorial headings -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- WebRTC Signaling Client (Cloudflare Durable Object WebSocket relay) -->
+    <script src="signaling-client.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        sage: {
+                            50: '#f4f7f4',
+                            100: '#e4ebe4',
+                            200: '#c9d8c9',
+                            300: '#a3bca4',
+                            400: '#769a78',
+                            500: '#557c58',
+                            600: '#416244',
+                            700: '#354f37',
+                            800: '#2c402e',
+                            900: '#253527',
+                        },
+                        sand: {
+                            50: '#fdfcfa',
+                            100: '#f8f5ef',
+                            200: '#f0eadd',
+                            300: '#e4d9c5',
+                            400: '#d3c1a3',
+                        },
+                        clay: {
+                            500: '#b87d64',
+                            600: '#a0664e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #fdfcfa;
+            color: #2c352d;
+        }
+        .hero-pattern {
+            background-image: radial-gradient(#769a78 0.75px, transparent 0.75px), radial-gradient(#769a78 0.75px, #fdfcfa 0.75px);
+            background-size: 32px 32px;
+            background-position: 0 0, 16px 16px;
+        }
+        .editable-highlight {
+            outline: 2px dashed #769a78;
+            outline-offset: 6px;
+            background-color: rgba(228, 235, 228, 0.35);
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .mirror-video {
+            transform: scaleX(-1);
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.65; }
+            50% { transform: scale(1.35); opacity: 1; }
+        }
+        .breathe-circle {
+            animation: breathe 8s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-sage-200 selection:text-sage-900">
+
+    <!-- Top Announcement / Crisis & Availability Banner -->
+    <div class="bg-sage-800 text-sand-100 text-xs sm:text-sm py-2.5 px-4">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Currently accepting new clients for in-person &amp; live telehealth video sessions</span>
+            </div>
+            <div class="flex items-center gap-4 text-sage-200">
+                <a href="#telehealth" class="underline hover:text-white font-medium flex items-center gap-1">
+                    <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                    <span>Enter Video Waiting Room</span>
+                </a>
+                <span>•</span>
+                <a href="#contact" class="underline hover:text-white font-medium">Book Now &rarr;</a>
+                <span>•</span>
+                <a href="admin.html" class="underline hover:text-white font-medium flex items-center gap-1">
+                    <i data-lucide="lock" class="w-3 h-3"></i>
+                    <span>Clinician Login</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-sand-50/95 backdrop-blur-md border-b border-sand-200 transition-all">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <!-- Brand Identity -->
+            <a href="#home" class="flex items-center gap-3 group focus:outline-none">
+                <div class="w-10 h-10 rounded-xl bg-sage-600 text-white flex items-center justify-center shadow-sm group-hover:bg-sage-700 transition">
+                    <i data-lucide="sprout" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="font-serif text-xl font-semibold text-sage-900 tracking-tight block leading-none" id="nav-therapist-name">Linda Milewski, LCSW</span>
+                    <span class="text-xs text-sage-600 tracking-wider uppercase font-medium mt-1 block">Holistic Psychotherapy</span>
+                </div>
+            </a>
+
+            <!-- Desktop Navigation Links -->
+            <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-sage-800">
+                <a href="#home" class="hover:text-sage-600 transition py-2">Home</a>
+                <a href="#services" class="hover:text-sage-600 transition py-2">Services &amp; Rates</a>
+                <a href="#telehealth" class="hover:text-sage-600 transition py-2 flex items-center gap-1.5 text-sage-900 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Video Session</span>
+                </a>
+                <a href="#about" class="hover:text-sage-600 transition py-2 flex items-center gap-1.5">
+                    <span>About Me</span>
+                </a>
+                <a href="#testimonials" class="hover:text-sage-600 transition py-2">Client Words</a>
+                <a href="#contact" class="hover:text-sage-600 transition py-2">Contact</a>
+            </nav>
+
+            <!-- Action Buttons -->
+            <div class="hidden md:flex items-center gap-2.5">
+                <a href="#telehealth" class="bg-sage-100 hover:bg-sage-200 text-sage-800 px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center gap-2">
+                    <i data-lucide="video" class="w-4 h-4 text-sage-700"></i>
+                    <span>Telehealth Room</span>
+                </a>
+                <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i data-lucide="calendar-heart" class="w-4 h-4"></i>
+                    <span>Free 15-Min Consult</span>
+                </a>
+            </div>
+
+            <!-- Mobile Hamburger Button -->
+            <button id="mobile-menu-btn" aria-label="Toggle Menu" class="md:hidden p-2.5 rounded-xl text-sage-800 hover:bg-sand-200 focus:outline-none">
+                <i data-lucide="menu" class="w-6 h-6" id="menu-icon-open"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Menu Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden bg-sand-50 border-b border-sand-200 px-4 pt-2 pb-6 space-y-2.5">
+            <a href="#home" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Home</a>
+            <a href="#services" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Services &amp; Rates</a>
+            <a href="#telehealth" class="mobile-nav-link flex items-center justify-between px-3 py-2.5 rounded-xl text-base font-semibold text-sage-900 bg-sage-100/70">
+                <span>Live Video Session Room</span>
+                <span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">Telehealth</span>
+            </a>
+            <a href="#about" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">About Me</a>
+            <a href="#testimonials" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Client Words</a>
+            <a href="#contact" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Contact &amp; Email Form</a>
+            <a href="admin.html" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-sm font-medium text-sage-700 hover:bg-sage-50">Clinician Portal Login</a>
+            <div class="pt-2">
+                <a href="#contact" onclick="prefillConsultation()" class="mobile-nav-link w-full bg-sage-600 text-white py-3 px-4 rounded-xl font-medium text-center block shadow-sm">
+                    Request Free 15-Min Consultation
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- HERO SECTION -->
+        <section id="home" class="relative overflow-hidden py-16 sm:py-24 lg:py-28 bg-gradient-to-b from-sand-100/80 via-sand-50 to-sand-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+                    
+                    <!-- Left Column: Intro & CTAs -->
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sage-100/90 border border-sage-200 text-sage-800 text-xs font-medium">
+                            <i data-lucide="heart-handshake" class="w-4 h-4 text-sage-600"></i>
+                            <span>Warm, confidential care built on trust &amp; personal connection</span>
+                        </div>
+
+                        <h1 class="font-serif text-4xl sm:text-5xl lg:text-[3.4rem] text-sage-900 font-semibold leading-[1.15] tracking-tight">
+                            A quiet, grounded space to untangle life’s heavy moments.
+                        </h1>
+
+                        <p class="text-base sm:text-lg text-sage-800/85 leading-relaxed max-w-2xl">
+                            Whether you found me through a trusted friend’s recommendation or a local community notice, you are welcome here. Together, we work at your pace to navigate anxiety, relationship shifts, burnout, and personal growth with practical tools and genuine empathy.
+                        </p>
+
+                        <!-- Primary Call to Actions -->
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
+                            <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-7 py-4 rounded-xl font-medium text-center shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5">
+                                <span>Book a Free 15-Min Consultation</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                            <a href="#telehealth" class="bg-white hover:bg-sage-50 text-sage-800 border border-sage-300 px-6 py-4 rounded-xl font-medium text-center transition flex items-center justify-center gap-2 shadow-sm">
+                                <i data-lucide="video" class="w-4 h-4 text-sage-600"></i>
+                                <span>Join Video Session</span>
+                            </a>
+                        </div>
+
+                        <!-- Trust / Word-of-Mouth Badges -->
+                        <div class="pt-6 border-t border-sand-200 grid grid-cols-3 gap-4 text-xs sm:text-sm text-sage-700">
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">100% Confidential</strong>
+                                    <span>HIPAA-aligned private practice</span>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="video" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">Built-In Telehealth</strong>
+                                    <span>Browser video chat—no downloads</span>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2.5">
+                                <i data-lucide="sparkles" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
+                                <div>
+                                    <strong class="block text-sage-900 font-semibold">Personal Care</strong>
+                                    <span>No clinic waitlists or bots</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Calming Imagery & Quick Card -->
+                    <div class="lg:col-span-5 relative">
+                        <div class="relative mx-auto max-w-md lg:max-w-none">
+                            <div class="absolute -inset-3 bg-sage-200/50 rounded-3xl transform rotate-2 -z-10"></div>
+                            
+                            <div class="bg-white p-3 rounded-3xl shadow-xl border border-sand-200">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80" 
+                                    onerror="this.src='https://placehold.co/600x700/e4ebe4/354f37?text=Warm+Therapy+Space'"
+                                    alt="Sunlit calming therapy office and welcoming environment" 
+                                    class="w-full h-[380px] sm:h-[430px] object-cover rounded-2xl"
+                                >
+                                <div class="mt-3 p-4 bg-sand-50 rounded-2xl border border-sand-200 flex items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-sage-100 text-sage-700 flex items-center justify-center shrink-0">
+                                            <i data-lucide="phone-call" class="w-5 h-5"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-medium text-sage-600 uppercase tracking-wider">Not sure where to start?</p>
+                                            <p class="text-sm font-semibold text-sage-900">Let's chat for 15 minutes—free of charge.</p>
+                                        </div>
+                                    </div>
+                                    <a href="#contact" class="text-xs font-semibold bg-sage-600 text-white px-3.5 py-2 rounded-xl hover:bg-sage-700 transition shrink-0">
+                                        Reach Out
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVICES SECTION -->
+        <section id="services" class="py-20 bg-white border-y border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <div class="text-center max-w-3xl mx-auto mb-14">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-600 bg-sage-50 px-3.5 py-1.5 rounded-full border border-sage-200">How We Can Work Together</span>
+                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4">Specialized Therapy Offerings</h2>
+                    <p class="text-sage-700 mt-3 text-base sm:text-lg">
+                        Every person’s story is unique. I tailor evidence-based modalities—including CBT, Attachment-Based Therapy, and Mindfulness—to fit your goals.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    <div class="bg-sand-50 rounded-2xl p-7 border border-sand-200 hover:border-sage-300 transition shadow-sm hover:shadow-md flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-100 text-sage-700 flex items-center justify-center mb-5">
+                                <i data-lucide="user-check" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-sage-900 mb-2">Individual Psychotherapy</h3>
+                            <p class="text-sage-700 text-sm leading-relaxed mb-5">
+                                One-on-one sessions focused on self-discovery, healing emotional wounds, building healthy boundaries, and breaking unhelpful patterns in a judgment-free space.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-800 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Self-esteem &amp; identity exploration</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Emotional regulation &amp; boundary setting</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Trauma-informed, compassionate pacing</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sand-200 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-600 block">50-Minute Session</span>
+                                <span class="text-lg font-semibold text-sage-900">$150 <span class="text-xs font-normal text-sage-600">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Individual Psychotherapy')" class="text-sm font-medium text-sage-700 hover:text-sage-900 bg-sage-100 hover:bg-sage-200 px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-sage-900 text-sand-50 rounded-2xl p-7 border border-sage-800 shadow-md flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-4 right-4 bg-sage-700 text-sage-100 text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                            Most Requested
+                        </div>
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-800 text-sage-200 flex items-center justify-center mb-5">
+                                <i data-lucide="wind" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-white mb-2">Anxiety &amp; Burnout Recovery</h3>
+                            <p class="text-sage-200 text-sm leading-relaxed mb-5">
+                                For high-achievers, caregivers, and overwhelmed minds experiencing racing thoughts, perfectionism, chronic stress, or nervous system exhaustion.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-100 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Practical nervous-system grounding tools</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Overcoming people-pleasing &amp; perfectionism</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-300 shrink-0"></i>
+                                    <span>Panic, worry, and sleep support</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sage-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-300 block">50-Minute Session</span>
+                                <span class="text-lg font-semibold text-white">$150 <span class="text-xs font-normal text-sage-300">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Anxiety & Burnout Recovery')" class="text-sm font-medium text-sage-900 bg-sand-100 hover:bg-white px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-sand-50 rounded-2xl p-7 border border-sand-200 hover:border-sage-300 transition shadow-sm hover:shadow-md flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl bg-sage-100 text-sage-700 flex items-center justify-center mb-5">
+                                <i data-lucide="compass" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-serif text-2xl font-semibold text-sage-900 mb-2">Life Transitions &amp; Relationships</h3>
+                            <p class="text-sage-700 text-sm leading-relaxed mb-5">
+                                Compassionate guidance through career shifts, parenthood, relocation, grief, breakups, or deepening communication with your partner.
+                            </p>
+                            <ul class="space-y-2 text-xs sm:text-sm text-sage-800 mb-6">
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Navigating grief, loss &amp; new chapters</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Couples &amp; relational communication</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-sage-600 shrink-0"></i>
+                                    <span>Clarity and confidence in decision-making</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="pt-4 border-t border-sand-200 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-sage-600 block">50–75 Minute Session</span>
+                                <span class="text-lg font-semibold text-sage-900">$150–$185 <span class="text-xs font-normal text-sage-600">/ session</span></span>
+                            </div>
+                            <button onclick="selectServiceInForm('Life Transitions & Relationships')" class="text-sm font-medium text-sage-700 hover:text-sage-900 bg-sage-100 hover:bg-sage-200 px-4 py-2 rounded-xl transition">
+                                Inquire &rarr;
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- SECURE TELEHEALTH VIDEO SESSION ROOM SECTION -->
+        <section id="telehealth" class="py-20 bg-sage-900 text-sand-50 border-b border-sage-800">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sage-800 border border-sage-700 text-sage-200 text-xs font-medium mb-3">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>Encrypted Peer-to-Peer WebRTC Telehealth</span>
+                        </div>
+                        <h2 class="font-serif text-3xl sm:text-4xl text-white font-semibold">Virtual Therapy Waiting Room &amp; Video Chat</h2>
+                        <p class="text-sage-200 mt-2 text-sm sm:text-base max-w-2xl">
+                            Have an upcoming telehealth appointment with Linda Milewski, LCSW? Test your camera below and enter the session code provided for your appointment to connect directly in your browser.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="copyRoomInviteLink()" class="bg-sage-800 hover:bg-sage-700 text-sage-100 border border-sage-600 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="link" class="w-4 h-4 text-sage-300"></i>
+                            <span id="copy-link-label">Copy Session Invite Link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    <div class="lg:col-span-4 bg-sage-800/70 border border-sage-700 rounded-3xl p-6 space-y-5 shadow-lg">
+                        <div class="flex items-center justify-between border-b border-sage-700/80 pb-4">
+                            <div>
+                                <h3 class="font-serif text-xl font-semibold text-white">Session Setup</h3>
+                                <p class="text-xs text-sage-300 mt-0.5">Enter your details to join the room</p>
+                            </div>
+                            <span id="connection-badge" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage-700 text-sage-200">
+                                Standby
+                            </span>
+                        </div>
+
+                        <div>
+                            <label for="video-user-name" class="block text-xs font-semibold uppercase tracking-wider text-sage-200 mb-1.5">
+                                Your Display Name
+                            </label>
+                            <input 
+                                type="text" 
+                                id="video-user-name" 
+                                placeholder="e.g., Alex"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            >
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="video-room-code" class="block text-xs font-semibold uppercase tracking-wider text-sage-200">
+                                    Session Room Code <span class="text-emerald-400">*</span>
+                                </label>
+                                <button type="button" onclick="generateNewRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
+                                    Generate New Code
+                                </button>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="video-room-code" 
+                                placeholder="Enter code provided by Linda"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white placeholder-sage-400 font-mono text-sm tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+                            >
+                            <p id="err-room-code" class="hidden text-xs text-rose-300 bg-rose-950/70 border border-rose-700/70 rounded-lg px-2.5 py-1.5 mt-1.5">
+                                Please enter your Session Room Code before joining.
+                            </p>
+                        </div>
+
+                        <div class="bg-sage-900/60 p-3.5 rounded-2xl border border-sage-700/80 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-sage-200 font-medium flex items-center gap-1.5">
+                                    <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    <span>Microphone Check</span>
+                                </span>
+                                <span id="mic-status-label" class="text-sage-400 text-[11px]">Camera off</span>
+                            </div>
+                            <div class="w-full h-2 bg-sage-800 rounded-full overflow-hidden">
+                                <div id="mic-level-bar" class="h-full bg-emerald-400 transition-all duration-75" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2.5 pt-1">
+                            <button 
+                                id="btn-start-camera" 
+                                type="button" 
+                                onclick="startLocalMedia()" 
+                                class="w-full bg-sage-700 hover:bg-sage-600 text-white font-medium py-3 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 border border-sage-500"
+                            >
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                                <span id="start-camera-text">1. Test Camera &amp; Microphone</span>
+                            </button>
+
+                            <button 
+                                id="btn-join-room" 
+                                type="button" 
+                                onclick="joinTelehealthRoom()" 
+                                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-4 rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2"
+                            >
+                                <i data-lucide="video" class="w-4 h-4"></i>
+                                <span id="join-room-text">2. Join Video Session</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-8 space-y-4">
+                        <div id="video-stage-container" class="relative bg-sage-950 rounded-3xl overflow-hidden border border-sage-700 shadow-2xl aspect-video flex flex-col justify-between">
+                            
+                            <div class="relative z-20 flex items-center justify-between px-5 py-3.5 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+                                <div class="flex items-center gap-2.5">
+                                    <span id="live-indicator-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                                    <span id="stage-room-title" class="text-xs sm:text-sm font-medium text-white tracking-wide">
+                                        Waiting Room • Linda Milewski, LCSW
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span id="call-timer" class="font-mono text-xs sm:text-sm bg-black/50 text-sand-100 px-3 py-1 rounded-lg border border-white/10">
+                                        00:00
+                                    </span>
+                                    <button type="button" onclick="toggleVideoFullscreen()" title="Toggle Fullscreen" class="p-2 rounded-lg bg-black/40 hover:bg-black/70 text-white transition">
+                                        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <video id="remote-video" autoplay playsinline class="hidden absolute inset-0 w-full h-full object-cover z-0"></video>
+
+                            <div id="remote-name-badge" class="hidden absolute bottom-20 left-5 z-20 bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-white/15">
+                                Connected Participant
+                            </div>
+
+                            <div id="waiting-room-overlay" class="relative z-10 flex-1 flex flex-col items-center justify-center text-center p-6 select-none">
+                                <div class="relative flex items-center justify-center mb-5">
+                                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-sage-500/20 border border-sage-400/40 breathe-circle absolute"></div>
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sage-700/80 border border-sage-500 flex items-center justify-center shadow-inner">
+                                        <i data-lucide="sprout" class="w-8 h-8 text-emerald-300"></i>
+                                    </div>
+                                </div>
+                                <h4 id="waiting-room-heading" class="font-serif text-xl sm:text-2xl text-white font-medium">
+                                    Welcome to Linda’s Virtual Waiting Room
+                                </h4>
+                                <p id="waiting-room-subtext" class="text-xs sm:text-sm text-sage-300 max-w-md mt-2 leading-relaxed">
+                                    Enter your <strong>Session Room Code</strong> on the left and click <strong>"Join Video Session"</strong>.
+                                </p>
+                            </div>
+
+                            <div class="absolute bottom-20 right-4 sm:right-5 z-20 w-32 sm:w-44 aspect-video bg-sage-900 rounded-2xl overflow-hidden border-2 border-sage-500/80 shadow-xl">
+                                <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover mirror-video hidden"></video>
+                                <div id="local-video-placeholder" class="w-full h-full flex flex-col items-center justify-center bg-sage-800 text-sage-300 p-2 text-center">
+                                    <i data-lucide="user" class="w-6 h-6 mb-1 opacity-70"></i>
+                                    <span class="text-[10px] font-medium">Your Camera</span>
+                                </div>
+                                <span class="absolute bottom-1.5 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-medium">
+                                    You
+                                </span>
+                            </div>
+
+                            <div class="relative z-20 px-4 py-3.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent flex items-center justify-center gap-2.5 sm:gap-4">
+                                <button id="ctrl-mic-btn" type="button" onclick="toggleMicrophone()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                    <i data-lucide="mic" class="w-5 h-5"></i>
+                                </button>
+                                <button id="ctrl-cam-btn" type="button" onclick="toggleCamera()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                    <i data-lucide="video" class="w-5 h-5"></i>
+                                </button>
+                                <button id="ctrl-screen-btn" type="button" onclick="toggleScreenShare()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                    <i data-lucide="monitor-up" class="w-5 h-5"></i>
+                                </button>
+                                <button id="ctrl-chat-btn" type="button" onclick="toggleSessionChat()" class="relative w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
+                                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                                    <span id="chat-unread-dot" class="hidden absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                                </button>
+                                <button id="ctrl-end-btn" type="button" onclick="endTelehealthSession()" class="px-5 h-11 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition">
+                                    <i data-lucide="phone-off" class="w-4 h-4"></i>
+                                    <span>End Session</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="session-chat-drawer" class="hidden bg-sage-800/90 border border-sage-700 rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-sage-700 pb-2.5">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                                    <h4 class="text-xs font-semibold uppercase tracking-wider text-white">In-Session Chat</h4>
+                                </div>
+                                <button type="button" onclick="toggleSessionChat()" class="text-xs text-sage-300 hover:text-white">Close</button>
+                            </div>
+                            <div id="session-chat-messages" class="h-36 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+                            <form id="session-chat-form" onsubmit="sendSessionChatMessage(event)" class="flex gap-2">
+                                <input type="text" id="session-chat-input" placeholder="Type a message..." class="flex-1 px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white placeholder-sage-400 text-xs">
+                                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold">Send</button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT ME SECTION -->
+        <section id="about" class="py-20 bg-sand-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="bg-white p-4 rounded-3xl shadow-md border border-sand-200">
+                            <img 
+                                id="about-photo"
+                                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80" 
+                                onerror="this.src='https://placehold.co/600x720/e4ebe4/354f37?text=Your+Headshot+Here'"
+                                alt="Linda Milewski, LCSW Portrait Placeholder" 
+                                class="w-full h-[420px] object-cover object-top rounded-2xl"
+                            >
+                            <div class="mt-4 text-center">
+                                <h3 class="font-serif text-2xl font-semibold text-sage-900">Linda Milewski, LCSW</h3>
+                                <p class="text-xs text-sage-600 font-medium mt-0.5">Licensed Clinical Social Worker • (She/Her)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7 space-y-6">
+                        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-sage-600">
+                            <span>About Me</span>
+                            <span class="w-8 h-px bg-sage-400"></span>
+                        </div>
+                        <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold leading-snug">
+                            Hi, I’m Linda. I believe therapy works best when it feels like a genuine human conversation.
+                        </h2>
+                        <div class="space-y-4 text-sage-800 leading-relaxed text-base">
+                            <p>
+                                Welcome! Whether you are navigating anxiety, burnout, grief, or a major life transition, my goal is to offer a calm, grounded, and collaborative space where you feel genuinely heard.
+                            </p>
+                            <p>
+                                Rather than just nodding along, I combine deep emotional insight with practical, real-world tools you can use between sessions to build boundaries and peace of mind.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TESTIMONIALS SECTION -->
+        <section id="testimonials" class="py-16 bg-white border-t border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-2xl mx-auto mb-12">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-600">Word of Mouth &amp; Community</span>
+                    <h2 class="font-serif text-3xl text-sage-900 font-semibold mt-2">Why Clients &amp; Colleagues Refer Friends Here</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200">
+                        <p class="text-sage-800 text-sm italic mb-4">"A close friend gave me Linda's card when I was going through a painful divorce. From our very first 15-minute phone call, I felt heard without ever feeling judged."</p>
+                        <span class="text-xs font-semibold text-sage-700">Individual Therapy Client</span>
+                    </div>
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200">
+                        <p class="text-sage-800 text-sm italic mb-4">"I saw her local neighborhood advertisement after months of feeling burned out at work. Learning how to set boundaries has completely changed my daily peace of mind."</p>
+                        <span class="text-xs font-semibold text-sage-700">Anxiety &amp; Burnout Client</span>
+                    </div>
+                    <div class="bg-sand-50 p-6 rounded-2xl border border-sand-200">
+                        <p class="text-sage-800 text-sm italic mb-4">"As a local primary care physician, I regularly refer patients seeking a warm, responsive therapist who actually returns calls promptly."</p>
+                        <span class="text-xs font-semibold text-sage-700">Local Healthcare Colleague</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONTACT SECTION WITH FORMSPREE -->
+        <section id="contact" class="py-20 bg-gradient-to-b from-sand-100 to-sand-50 border-t border-sand-200">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-14">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-sage-700 bg-sage-100 px-3.5 py-1.5 rounded-full">Get In Touch</span>
+                    <h2 class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold mt-4">Contact &amp; Email Me</h2>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="bg-white rounded-3xl p-7 border border-sand-200 shadow-sm space-y-5">
+                            <h3 class="font-serif text-2xl font-semibold text-sage-900">Direct Contact Info</h3>
+                            <p id="contact-phone" class="text-sm font-semibold text-sage-900">Phone: (555) 234-8910</p>
+                            <p id="contact-email" class="text-sm font-semibold text-sage-900">lmilewski@something.com</p>
+                        </div>
+                        <div id="copy-toast" class="hidden bg-sage-800 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg">
+                            <span id="copy-toast-text">Copied!</span>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7">
+                        <div class="bg-white rounded-3xl p-7 sm:p-9 border border-sand-200 shadow-md">
+                            <form id="email-contact-form" action="https://formspree.io/f/xgaobpow" method="POST" novalidate class="space-y-5">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label for="client-name" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Your Name *</label>
+                                        <input type="text" id="client-name" name="name" required class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                        <p id="err-name" class="hidden text-xs text-rose-600 mt-1">Please enter your name.</p>
+                                    </div>
+                                    <div>
+                                        <label for="client-email" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Your Email *</label>
+                                        <input type="email" id="client-email" name="email" required class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                        <p id="err-email" class="hidden text-xs text-rose-600 mt-1">Please enter a valid email.</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label for="client-phone" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Phone</label>
+                                        <input type="tel" id="client-phone" name="phone" class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                    </div>
+                                    <div>
+                                        <label for="contact-preference" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Preferred Reply</label>
+                                        <select id="contact-preference" name="preferred_reply_method" class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                            <option value="Email">Email Reply</option>
+                                            <option value="Phone Call">Phone Call</option>
+                                            <option value="Text Message">Text Message</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label for="service-interest" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Service</label>
+                                        <select id="service-interest" name="service_interest" class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                            <option value="Free 15-Minute Consultation">Free 15-Minute Consultation</option>
+                                            <option value="Individual Psychotherapy">Individual Psychotherapy</option>
+                                            <option value="Anxiety & Burnout Recovery">Anxiety &amp; Burnout Recovery</option>
+                                            <option value="Life Transitions & Relationships">Life Transitions &amp; Relationships</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="referral-source" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Referral Source</label>
+                                        <select id="referral-source" name="referral_source" class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                                            <option value="Word of Mouth / Friend or Family">Word of Mouth</option>
+                                            <option value="Local Advertisement / Flyer">Local Advertisement</option>
+                                            <option value="Doctor or Healthcare Referral">Healthcare Colleague</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="client-message" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">Your Message *</label>
+                                    <textarea id="client-message" name="message" rows="4" required class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sm"></textarea>
+                                    <p id="err-message" class="hidden text-xs text-rose-600 mt-1">Please include a brief message.</p>
+                                </div>
+                                <div id="form-error-box" class="hidden bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl p-4">
+                                    Error sending message. Please try again.
+                                </div>
+                                <button type="submit" id="submit-btn" class="bg-sage-600 hover:bg-sage-700 text-white font-medium px-7 py-3.5 rounded-xl text-sm">
+                                    <span id="submit-btn-text">Send Email Message</span>
+                                </button>
+                            </form>
+                            <div id="form-success-box" class="hidden mt-6 bg-sage-50 border border-sage-300 rounded-2xl p-6 text-sage-900 space-y-2">
+                                <h4 class="font-serif text-xl font-semibold">Thank you for reaching out!</h4>
+                                <p class="text-xs text-sage-700" id="success-timestamp"></p>
+                                <p class="text-sm" id="success-summary"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-sage-900 text-sand-200 py-12 border-t border-sage-800">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-sage-400 gap-4">
+            <p>&copy; <span id="current-year">2026</span> Linda Milewski, LCSW Psychotherapy. All rights reserved.</p>
+            <div class="flex items-center gap-4">
+                <a href="admin.html" class="text-sage-300 hover:text-white underline flex items-center gap-1">
+                    <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                    <span>Clinician Portal Login</span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+
+            const roomInput = document.getElementById('video-room-code');
+            const params = new URLSearchParams(window.location.search);
+            const roomParam = params.get('room');
+            if (roomParam && roomInput) {
+                roomInput.value = roomParam.toUpperCase();
+                setTimeout(() => {
+                    document.getElementById('telehealth')?.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+            }
+        });
+
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+        function selectServiceInForm(serviceName) {
+            const selectEl = document.getElementById('service-interest');
+            if (selectEl) selectEl.value = serviceName;
+            document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function prefillConsultation() {
+            const selectEl = document.getElementById('service-interest');
+            if (selectEl) selectEl.value = 'Free 15-Minute Consultation';
+        }
+
+        function copyContactText(textToCopy, label) {
+            navigator.clipboard?.writeText(textToCopy);
+            const toast = document.getElementById('copy-toast');
+            document.getElementById('copy-toast-text').textContent = `${label} copied!`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        let localStream = null;
+        let screenStream = null;
+        let signalingClient = null;
+        let isMicMuted = false;
+        let isCamOff = false;
+        let isScreenSharing = false;
+        let callTimerInterval = null;
+        let callSeconds = 0;
+
+        async function startLocalMedia() {
+            const startBtnText = document.getElementById('start-camera-text');
+            const localVideo = document.getElementById('local-video');
+            const placeholder = document.getElementById('local-video-placeholder');
+            try {
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                localVideo.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                localVideo.play().catch(() => {});
+                startBtnText.textContent = "Camera & Mic Active ✓";
+                return true;
+            } catch {
+                alert("Please allow camera and microphone permissions.");
+                return false;
+            }
+        }
+
+        async function joinTelehealthRoom() {
+            const roomInput = document.getElementById('video-room-code');
+            const roomCodeRaw = roomInput.value.trim();
+            const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!cleanCode) {
+                document.getElementById('err-room-code').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('err-room-code').classList.add('hidden');
+
+            const userName = document.getElementById('video-user-name').value.trim() || 'Client';
+            if (!localStream) {
+                const ok = await startLocalMedia();
+                if (!ok) return;
+            }
+            if (signalingClient) signalingClient.disconnect();
+
+            signalingClient = new SignalingClient();
+            signalingClient.onRemoteStream = (peerId, remoteStream, peerName) => {
+                const remoteVideo = document.getElementById('remote-video');
+                const remoteBadge = document.getElementById('remote-name-badge');
+                if (remoteVideo.srcObject !== remoteStream) remoteVideo.srcObject = remoteStream;
+                remoteBadge.textContent = peerName || "Linda Milewski, LCSW";
+                remoteVideo.onloadedmetadata = () => {
+                    remoteVideo.classList.remove('hidden');
+                    document.getElementById('waiting-room-overlay').classList.add('hidden');
+                    remoteBadge.classList.remove('hidden');
+                    remoteVideo.play().catch(() => {});
+                };
+            };
+
+            signalingClient.onConnectionStateChange = (peerId, state, peerName) => {
+                if (state === "connected") {
+                    document.getElementById('remote-video').classList.remove('hidden');
+                    document.getElementById('waiting-room-overlay').classList.add('hidden');
+                    document.getElementById('remote-name-badge').classList.remove('hidden');
+                    startCallTimer();
+                }
+            };
+
+            signalingClient.onPeerLeft = () => {
+                document.getElementById('remote-video').classList.add('hidden');
+                document.getElementById('waiting-room-overlay').classList.remove('hidden');
+                stopCallTimer();
+            };
+
+            signalingClient.onChatMessage = (sender, text) => {
+                appendChatMessage(sender, text, false);
+            };
+
+            await signalingClient.connect(cleanCode, localStream, userName);
+            document.getElementById('join-room-text').textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
+        }
+
+        function toggleMicrophone() {
+            if (!localStream) return;
+            isMicMuted = !isMicMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted);
+        }
+
+        function toggleCamera() {
+            if (!localStream) return;
+            isCamOff = !isCamOff;
+            localStream.getVideoTracks().forEach(t => t.enabled = !isCamOff);
+        }
+
+        async function toggleScreenShare() {
+            if (!localStream) return;
+            if (isScreenSharing) {
+                if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+                const vt = localStream.getVideoTracks()[0];
+                if (signalingClient && vt) signalingClient.replaceVideoTrack(vt);
+                isScreenSharing = false;
+                return;
+            }
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const st = screenStream.getVideoTracks()[0];
+                if (signalingClient) signalingClient.replaceVideoTrack(st);
+                isScreenSharing = true;
+                st.onended = () => toggleScreenShare();
+            } catch {}
+        }
+
+        function endTelehealthSession() {
+            if (signalingClient) signalingClient.disconnect();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            localStream = null;
+            document.getElementById('remote-video').classList.add('hidden');
+            document.getElementById('waiting-room-overlay').classList.remove('hidden');
+            stopCallTimer();
+        }
+
+        function startCallTimer() {
+            stopCallTimer();
+            callSeconds = 0;
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                const s = String(callSeconds % 60).padStart(2, '0');
+                document.getElementById('call-timer').textContent = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function stopCallTimer() {
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            document.getElementById('call-timer').textContent = "00:00";
+        }
+
+        function generateNewRoomCode() {
+            document.getElementById('video-room-code').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+        }
+
+        function copyRoomInviteLink() {
+            const code = document.getElementById('video-room-code').value.trim();
+            if (!code) return;
+            const url = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(code.toUpperCase())}#telehealth`;
+            copyContactText(url, 'Invite Link');
+        }
+
+        function toggleVideoFullscreen() {
+            const stage = document.getElementById('video-stage-container');
+            if (!document.fullscreenElement) stage.requestFullscreen?.();
+            else document.exitFullscreen?.();
+        }
+
+        function toggleSessionChat() {
+            document.getElementById('session-chat-drawer').classList.toggle('hidden');
+        }
+
+        function sendSessionChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('session-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const sender = document.getElementById('video-user-name').value.trim() || 'Client';
+            appendChatMessage(sender, text, true);
+            if (signalingClient) signalingClient.sendChatMessage(sender, text);
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, text, isSelf) {
+            const container = document.getElementById('session-chat-messages');
+            const div = document.createElement('div');
+            div.className = "bg-sage-900/90 text-sand-100 p-2 rounded-xl border border-sage-700";
+            div.textContent = `${sender}: ${text}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>

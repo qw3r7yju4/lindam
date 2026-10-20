@@ -54,7 +54,6 @@ class SignalingClient {
       } catch {
         return;
       }
-      // Process all signaling messages sequentially to prevent race conditions
       this._signalQueue = this._signalQueue
         .then(() => this._handleMessage(data))
         .catch((err) => console.error("[signaling] Queue error:", err));
@@ -139,7 +138,6 @@ class SignalingClient {
       iceCandidatePoolSize: 4,
     });
 
-    // Buffer local ICE candidates until our local Offer or Answer has been sent
     pc._canSendLocalCandidates = false;
     pc._localCandidateBuffer = [];
 
@@ -234,14 +232,12 @@ class SignalingClient {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // 1. Send the Offer first
       this._send({
         type: "offer",
         targetPeerId: peerId,
         sdp: { type: offer.type, sdp: offer.sdp },
       });
 
-      // 2. Then flush any local ICE candidates gathered so far
       this._flushLocalCandidates(pc);
     } catch (err) {
       console.error("[signaling] Error creating offer:", err);
@@ -257,14 +253,12 @@ class SignalingClient {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      // 1. Send the Answer first
       this._send({
         type: "answer",
         targetPeerId: peerId,
         sdp: { type: answer.type, sdp: answer.sdp },
       });
 
-      // 2. Then flush any local ICE candidates gathered so far
       this._flushLocalCandidates(pc);
     } catch (err) {
       console.error("[signaling] Error handling offer:", err);
