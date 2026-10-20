@@ -2,8 +2,31 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lindam",
   "compatibility_date": "2026-10-17",
+  "main": "worker.js",
   "assets": {
-    "directory": "./"   // match whatever dummies uses
-    // "not_found_handling": "none"  // or "single-page-application" / "404-page"
-  }
+    "directory": "./",
+    "not_found_handling": "none"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CHAT_ROOM",
+        "class_name": "ChatRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ChatRoom"]
+    }
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  },
 }
+

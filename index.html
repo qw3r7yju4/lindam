@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ll;<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -12,8 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- PeerJS for WebRTC Peer-to-Peer Video Sessions -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<!-- WebRTC Signaling Client (Cloudflare Durable Object WebSocket relay) -->
+    <script src="signaling-client.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -1310,13 +1310,11 @@
         }
 
         // =====================================================================
-        // TELEHEALTH VIDEO CHAT FUNCTIONALITY (WebRTC + PeerJS + Hardware Check)
+        // TELEHEALTH VIDEO CHAT FUNCTIONALITY (WebRTC + Durable Object Signaling)
         // =====================================================================
         let localStream = null;
         let screenStream = null;
-        let peerInstance = null;
-        let currentCall = null;
-        let dataConnection = null;
+        let signalingClient = null;
         let isMicMuted = false;
         let isCamOff = false;
         let isScreenSharing = false;
@@ -1403,7 +1401,7 @@
             }
         }
 
-        // Join Peer-to-Peer WebRTC Room by Room Code
+// Join Telehealth Room via Durable Object WebSocket Signaling
         async function joinTelehealthRoom() {
             const roomCodeRaw = document.getElementById('video-room-code').value.trim() || 'LINDA-101';
             const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1414,11 +1412,11 @@
                 if (!ok) return;
             }
 
-            if (peerInstance) {
-                peerInstance.destroy();
+            if (signalingClient) {
+                signalingClient.disconnect();
+                signalingClient = null;
             }
 
-            const hostPeerId = `lmilewski-lcsw-${cleanCode}-host`;
             const joinBtnText = document.getElementById('join-room-text');
             joinBtnText.textContent = "Connecting to Room...";
             updateConnectionBadge("Connecting...", "bg-amber-700 text-amber-100");
@@ -1427,100 +1425,49 @@
             document.getElementById('waiting-room-heading').textContent = `Waiting in Room ${roomCodeRaw.toUpperCase()}...`;
             document.getElementById('waiting-room-subtext').innerHTML = `Your camera and microphone are ready. As soon as the other participant enters code <strong>${escapeHtml(roomCodeRaw.toUpperCase())}</strong> and clicks Join, your video session will begin automatically.`;
 
-            // First try registering as the Room Host
-            peerInstance = new Peer(hostPeerId);
+            signalingClient = new SignalingClient();
 
-            peerInstance.on('open', () => {
-                joinBtnText.textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
-                updateConnectionBadge("Waiting for Participant", "bg-emerald-700 text-emerald-100");
-                appendChatSystemMessage(`Joined room ${roomCodeRaw.toUpperCase()}. Waiting for the other participant...`);
-            });
-
-            // Receive incoming video call from second participant
-            peerInstance.on('call', (call) => {
-                currentCall = call;
-                call.answer(localStream);
-                handleActiveCall(call);
-            });
-
-            // Receive incoming text chat connection
-            peerInstance.on('connection', (conn) => {
-                dataConnection = conn;
-                setupDataChannel(conn);
-            });
-
-            // If Host ID is already taken, join as Guest and call the Host immediately
-            peerInstance.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    connectAsGuestToHost(hostPeerId, roomCodeRaw.toUpperCase(), userName);
-                } else {
-                    console.warn("PeerJS notice:", err);
-                    updateConnectionBadge("Ready in Waiting Room", "bg-sage-700 text-sage-200");
-                    joinBtnText.textContent = "Join Video Session";
-                }
-            });
-        }
-
-        function connectAsGuestToHost(hostPeerId, displayCode, userName) {
-            peerInstance = new Peer();
-
-            peerInstance.on('open', () => {
-                document.getElementById('join-room-text').textContent = `Connected (${displayCode})`;
-                const call = peerInstance.call(hostPeerId, localStream, {
-                    metadata: { name: userName }
-                });
-                currentCall = call;
-                handleActiveCall(call);
-
-                const conn = peerInstance.connect(hostPeerId, {
-                    metadata: { name: userName }
-                });
-                dataConnection = conn;
-                setupDataChannel(conn);
-            });
-        }
-
-        function handleActiveCall(call) {
-            call.on('stream', (remoteMediaStream) => {
+            signalingClient.onRemoteStream = (peerId, remoteStream) => {
                 const remoteVideo = document.getElementById('remote-video');
                 const waitingOverlay = document.getElementById('waiting-room-overlay');
                 const remoteBadge = document.getElementById('remote-name-badge');
 
-                remoteVideo.srcObject = remoteMediaStream;
+                remoteVideo.srcObject = remoteStream;
                 remoteVideo.classList.remove('hidden');
                 waitingOverlay.classList.add('hidden');
                 remoteBadge.classList.remove('hidden');
-                remoteBadge.textContent = (call.metadata && call.metadata.name) ? call.metadata.name : "Connected Participant";
+                remoteBadge.textContent = "Connected Participant";
 
                 document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
                 updateConnectionBadge("Live Encrypted Call", "bg-emerald-600 text-white");
                 startCallTimer();
                 appendChatSystemMessage("Video & audio session connected.");
-            });
+            };
 
-            call.on('close', () => {
+            signalingClient.onPeerLeft = (peerId) => {
                 resetRemoteVideoStage();
-            });
-        }
+                appendChatSystemMessage("The other participant has left the session.");
+            };
 
-        function setupDataChannel(conn) {
-            conn.on('open', () => {
-                const myName = document.getElementById('video-user-name').value.trim() || 'Participant';
-                conn.send({ type: 'intro', name: myName });
-            });
-            conn.on('data', (data) => {
-                if (data && data.type === 'intro') {
-                    const remoteBadge = document.getElementById('remote-name-badge');
-                    remoteBadge.textContent = data.name;
-                    remoteBadge.classList.remove('hidden');
-                } else if (data && data.type === 'chat') {
-                    appendChatMessage(data.sender, data.text, false);
-                    const drawer = document.getElementById('session-chat-drawer');
-                    if (drawer.classList.contains('hidden')) {
-                        document.getElementById('chat-unread-dot').classList.remove('hidden');
-                    }
+            signalingClient.onChatMessage = (sender, text) => {
+                appendChatMessage(sender, text, false);
+                const drawer = document.getElementById('session-chat-drawer');
+                if (drawer.classList.contains('hidden')) {
+                    document.getElementById('chat-unread-dot').classList.remove('hidden');
                 }
-            });
+            };
+
+            try {
+                await signalingClient.connect(cleanCode, localStream);
+                joinBtnText.textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
+                updateConnectionBadge("Waiting for Participant", "bg-emerald-700 text-emerald-100");
+                appendChatSystemMessage(`Joined room ${roomCodeRaw.toUpperCase()}. Waiting for the other participant...`);
+            } catch (err) {
+                console.error("Signaling connection failed:", err);
+                updateConnectionBadge("Connection Failed", "bg-rose-700 text-rose-100");
+                joinBtnText.textContent = "Join Video Session";
+                alert("Could not connect to the signaling server. Please check your internet connection and try again.");
+            }
         }
 
         // Toggle Microphone Mute
@@ -1575,10 +1522,9 @@
                 localVideo.classList.remove('mirror-video', 'hidden');
                 document.getElementById('local-video-placeholder').classList.add('hidden');
 
-                // Replace outgoing track if in a PeerJS call
-                if (currentCall && currentCall.peerConnection) {
-                    const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(screenTrack);
+                // Replace outgoing video track on all peer connections
+                if (signalingClient) {
+                    signalingClient.replaceVideoTrack(screenTrack);
                 }
 
                 isScreenSharing = true;
@@ -1603,9 +1549,8 @@
                 localVideo.classList.add('mirror-video');
 
                 const videoTrack = localStream.getVideoTracks()[0];
-                if (currentCall && currentCall.peerConnection && videoTrack) {
-                    const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(videoTrack);
+                if (signalingClient && videoTrack) {
+                    signalingClient.replaceVideoTrack(videoTrack);
                 }
             }
             isScreenSharing = false;
@@ -1648,13 +1593,9 @@
 
         // End Telehealth Session
         function endTelehealthSession() {
-            if (currentCall) {
-                currentCall.close();
-                currentCall = null;
-            }
-            if (peerInstance) {
-                peerInstance.destroy();
-                peerInstance = null;
+            if (signalingClient) {
+                signalingClient.disconnect();
+                signalingClient = null;
             }
             if (screenStream) {
                 screenStream.getTracks().forEach(t => t.stop());
@@ -1792,8 +1733,8 @@
             const sender = document.getElementById('video-user-name').value.trim() || 'You';
             appendChatMessage(sender, text, true);
 
-            if (dataConnection && dataConnection.open) {
-                dataConnection.send({ type: 'chat', sender: sender, text: text });
+            if (signalingClient) {
+                signalingClient.sendChatMessage(sender, text);
             }
             input.value = '';
         }
