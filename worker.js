@@ -288,6 +288,23 @@ function decodeQuotedPrintable(text) {
   });
 }
 
+function cleanEmailReplyText(text) {
+  return text
+    .replace(/=\s+/g, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\b[A-Za-z][\w-]*\s*\{[^}]*\}/g, " ")
+    .replace(/\s*(?:_{5,}|-{5,}\s*Original Message|From:\s*[\s\S]*?(?:\bSent:|\bDate:))[\s\S]*$/i, "")
+    .replace(/(?:\r?\n)?On .{1,160}wrote:\s*[\s\S]*$/i, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1500);
+}
+
 // Helper: Extract plain text from raw MIME email without external dependencies
 function extractPlainTextFromMime(rawEmailText) {
   if (!rawEmailText) return "";
@@ -296,13 +313,9 @@ function extractPlainTextFromMime(rawEmailText) {
   if (parts.length < 2) return rawEmailText.slice(0, 1000);
   const bodyContent = decodeQuotedPrintable(parts.slice(1).join("\n\n"));
   // Strip HTML tags and MIME boundary noise for a clean preview
-  return bodyContent
-    .replace(/--[^\r\n]+/g, "")
-    .replace(/Content-[^\r\n]+/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 1500);
+  return cleanEmailReplyText(
+    bodyContent.replace(/--[^\r\n]+/g, "").replace(/Content-[^\r\n]+/gi, ""),
+  );
 }
 
 export default {
