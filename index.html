@@ -1,4 +1,4 @@
-ll;<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -12,7 +12,7 @@ ll;<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-<!-- WebRTC Signaling Client (Cloudflare Durable Object WebSocket relay) -->
+    <!-- WebRTC Signaling Client (Cloudflare Durable Object WebSocket relay) -->
     <script src="signaling-client.js"></script>
     <script>
         tailwind.config = {
@@ -426,7 +426,7 @@ ll;<!DOCTYPE html>
                         </div>
                         <h2 class="font-serif text-3xl sm:text-4xl text-white font-semibold">Virtual Therapy Waiting Room &amp; Video Chat</h2>
                         <p class="text-sage-200 mt-2 text-sm sm:text-base max-w-2xl">
-                            Have an upcoming telehealth appointment with Linda Milewski, LCSW? Test your camera below and enter your session code to connect directly in your browser.
+                            Have an upcoming telehealth appointment with Linda Milewski, LCSW? Test your camera below and enter the session code provided for your appointment to connect directly in your browser.
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
@@ -469,7 +469,7 @@ ll;<!DOCTYPE html>
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
                                 <label for="video-room-code" class="block text-xs font-semibold uppercase tracking-wider text-sage-200">
-                                    Session Room Code
+                                    Session Room Code <span class="text-emerald-400">*</span>
                                 </label>
                                 <button type="button" onclick="generateNewRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
                                     Generate New Code
@@ -478,12 +478,14 @@ ll;<!DOCTYPE html>
                             <input 
                                 type="text" 
                                 id="video-room-code" 
-                                value="LINDA-101"
-                                placeholder="e.g., LINDA-101"
-                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white font-mono text-sm tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                placeholder="Enter code provided by Linda"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white placeholder-sage-400 font-mono text-sm tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
                             >
+                            <p id="err-room-code" class="hidden text-xs text-rose-300 bg-rose-950/70 border border-rose-700/70 rounded-lg px-2.5 py-1.5 mt-1.5">
+                                Please enter your Session Room Code (or click "Generate New Code") before joining.
+                            </p>
                             <p class="text-[11px] text-sage-300 mt-1">
-                                Both Linda and the client enter this same code to connect.
+                                Both Linda and the client enter the same appointment code to connect.
                             </p>
                         </div>
 
@@ -578,7 +580,7 @@ ll;<!DOCTYPE html>
                                 Connected Participant
                             </div>
 
-                            <!-- Waiting Room / Calming Placeholder Overlay (Visible when not yet connected to remote peer) -->
+                            <!-- Waiting Room / Calming Placeholder Overlay -->
                             <div id="waiting-room-overlay" class="relative z-10 flex-1 flex flex-col items-center justify-center text-center p-6 select-none">
                                 <!-- Breathing Exercise Circle -->
                                 <div class="relative flex items-center justify-center mb-5">
@@ -591,7 +593,7 @@ ll;<!DOCTYPE html>
                                     Welcome to Linda’s Virtual Waiting Room
                                 </h4>
                                 <p id="waiting-room-subtext" class="text-xs sm:text-sm text-sage-300 max-w-md mt-2 leading-relaxed">
-                                    Click <strong>"Test Camera &amp; Microphone"</strong> or <strong>"Join Video Session"</strong> on the left. While waiting, follow the gentle breathing circle above (inhale 4s, exhale 4s).
+                                    Enter your <strong>Session Room Code</strong> on the left and click <strong>"Join Video Session"</strong>. While waiting, follow the gentle breathing circle above (inhale 4s, exhale 4s).
                                 </p>
                             </div>
 
@@ -709,7 +711,7 @@ ll;<!DOCTYPE html>
             </div>
         </section>
 
-        <!-- ABOUT ME SECTION (WITH EASY PLACEHOLDERS & INTERACTIVE BIO CUSTOMIZER) -->
+        <!-- ABOUT ME SECTION -->
         <section id="about" class="py-20 bg-sand-50">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
@@ -1229,14 +1231,18 @@ ll;<!DOCTYPE html>
             }
             document.getElementById('current-year').textContent = new Date().getFullYear();
 
+            const roomInput = document.getElementById('video-room-code');
+            if (roomInput) {
+                roomInput.addEventListener('input', () => {
+                    clearRoomCodeError();
+                });
+            }
+
             // Check if a session room code was passed in the URL (?room=XYZ)
             const params = new URLSearchParams(window.location.search);
             const roomParam = params.get('room');
-            if (roomParam) {
-                const roomInput = document.getElementById('video-room-code');
-                if (roomInput) {
-                    roomInput.value = roomParam.toUpperCase();
-                }
+            if (roomParam && roomInput) {
+                roomInput.value = roomParam.toUpperCase();
                 const telehealthSection = document.getElementById('telehealth');
                 if (telehealthSection) {
                     setTimeout(() => {
@@ -1325,6 +1331,21 @@ ll;<!DOCTYPE html>
         let micAnalyser = null;
         let micAnimFrame = null;
 
+        function showRoomCodeError() {
+            const roomInput = document.getElementById('video-room-code');
+            const errRoomCode = document.getElementById('err-room-code');
+            errRoomCode.classList.remove('hidden');
+            roomInput.classList.add('border-rose-400', 'ring-2', 'ring-rose-400/50');
+            roomInput.focus();
+        }
+
+        function clearRoomCodeError() {
+            const roomInput = document.getElementById('video-room-code');
+            const errRoomCode = document.getElementById('err-room-code');
+            errRoomCode.classList.add('hidden');
+            roomInput.classList.remove('border-rose-400', 'ring-2', 'ring-rose-400/50');
+        }
+
         // Start Local Camera & Microphone
         async function startLocalMedia() {
             const startBtnText = document.getElementById('start-camera-text');
@@ -1345,6 +1366,7 @@ ll;<!DOCTYPE html>
                 localVideo.srcObject = localStream;
                 localVideo.classList.remove('hidden');
                 placeholder.classList.add('hidden');
+                localVideo.play().catch(() => {});
 
                 isMicMuted = false;
                 isCamOff = false;
@@ -1401,11 +1423,19 @@ ll;<!DOCTYPE html>
             }
         }
 
-// Join Telehealth Room via Durable Object WebSocket Signaling
+        // Join Telehealth Room via Durable Object WebSocket Signaling
         async function joinTelehealthRoom() {
-            const roomCodeRaw = document.getElementById('video-room-code').value.trim() || 'LINDA-101';
+            const roomInput = document.getElementById('video-room-code');
+            const roomCodeRaw = roomInput.value.trim();
             const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const userName = document.getElementById('video-user-name').value.trim() || 'Client';
+
+            if (!cleanCode) {
+                showRoomCodeError();
+                return;
+            }
+            clearRoomCodeError();
+
+            const userName = document.getElementById('video-user-name').value.trim() || 'Participant';
 
             if (!localStream) {
                 const ok = await startLocalMedia();
@@ -1427,25 +1457,38 @@ ll;<!DOCTYPE html>
 
             signalingClient = new SignalingClient();
 
-            signalingClient.onRemoteStream = (peerId, remoteStream) => {
+            signalingClient.onRemoteStream = (peerId, remoteStream, peerName) => {
                 const remoteVideo = document.getElementById('remote-video');
                 const waitingOverlay = document.getElementById('waiting-room-overlay');
                 const remoteBadge = document.getElementById('remote-name-badge');
 
-                remoteVideo.srcObject = remoteStream;
+                if (remoteVideo.srcObject !== remoteStream) {
+                    remoteVideo.srcObject = remoteStream;
+                }
                 remoteVideo.classList.remove('hidden');
+                remoteVideo.play().catch(err => console.warn("Remote video play notice:", err));
+
                 waitingOverlay.classList.add('hidden');
                 remoteBadge.classList.remove('hidden');
-                remoteBadge.textContent = "Connected Participant";
+                remoteBadge.textContent = peerName || "Connected Participant";
+            };
 
-                document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
-                updateConnectionBadge("Live Encrypted Call", "bg-emerald-600 text-white");
-                startCallTimer();
-                appendChatSystemMessage("Video & audio session connected.");
+            signalingClient.onConnectionStateChange = (peerId, state) => {
+                if (state === "connected") {
+                    document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                    updateConnectionBadge("Live Encrypted Call", "bg-emerald-600 text-white");
+                    startCallTimer();
+                    appendChatSystemMessage("Video & audio session connected.");
+                } else if (state === "connecting") {
+                    updateConnectionBadge("Negotiating Video...", "bg-amber-600 text-white");
+                } else if (state === "disconnected" || state === "failed") {
+                    updateConnectionBadge("Reconnecting...", "bg-rose-700 text-rose-100");
+                }
             };
 
             signalingClient.onPeerLeft = (peerId) => {
                 resetRemoteVideoStage();
+                updateConnectionBadge("Waiting for Participant", "bg-emerald-700 text-emerald-100");
                 appendChatSystemMessage("The other participant has left the session.");
             };
 
@@ -1458,14 +1501,14 @@ ll;<!DOCTYPE html>
             };
 
             try {
-                await signalingClient.connect(cleanCode, localStream);
+                await signalingClient.connect(cleanCode, localStream, userName);
                 joinBtnText.textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
                 updateConnectionBadge("Waiting for Participant", "bg-emerald-700 text-emerald-100");
                 appendChatSystemMessage(`Joined room ${roomCodeRaw.toUpperCase()}. Waiting for the other participant...`);
             } catch (err) {
                 console.error("Signaling connection failed:", err);
                 updateConnectionBadge("Connection Failed", "bg-rose-700 text-rose-100");
-                joinBtnText.textContent = "Join Video Session";
+                joinBtnText.textContent = "2. Join Video Session";
                 alert("Could not connect to the signaling server. Please check your internet connection and try again.");
             }
         }
@@ -1516,13 +1559,11 @@ ll;<!DOCTYPE html>
                 screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
                 const screenTrack = screenStream.getVideoTracks()[0];
 
-                // Show screen share in local preview
                 const localVideo = document.getElementById('local-video');
                 localVideo.srcObject = screenStream;
                 localVideo.classList.remove('mirror-video', 'hidden');
                 document.getElementById('local-video-placeholder').classList.add('hidden');
 
-                // Replace outgoing video track on all peer connections
                 if (signalingClient) {
                     signalingClient.replaceVideoTrack(screenTrack);
                 }
@@ -1557,7 +1598,7 @@ ll;<!DOCTYPE html>
             updateControlButtonsUI();
         }
 
-        // Solo Demo / Preview Mode (Simulates a connected session so owner can test the UI)
+        // Solo Demo / Preview Mode
         async function toggleDemoSession() {
             const remoteVideo = document.getElementById('remote-video');
             const waitingOverlay = document.getElementById('waiting-room-overlay');
@@ -1581,6 +1622,7 @@ ll;<!DOCTYPE html>
             if (localStream) {
                 remoteVideo.srcObject = localStream;
                 remoteVideo.classList.remove('hidden');
+                remoteVideo.play().catch(() => {});
             }
             waitingOverlay.classList.add('hidden');
             remoteBadge.textContent = "Linda Milewski, LCSW (Simulated Preview)";
@@ -1691,15 +1733,24 @@ ll;<!DOCTYPE html>
 
         function generateNewRoomCode() {
             const randomNum = Math.floor(100 + Math.random() * 900);
-            document.getElementById('video-room-code').value = `LINDA-${randomNum}`;
+            const roomInput = document.getElementById('video-room-code');
+            roomInput.value = `LINDA-${randomNum}`;
+            clearRoomCodeError();
         }
 
         function copyRoomInviteLink() {
-            const code = document.getElementById('video-room-code').value.trim() || 'LINDA-101';
-            const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(code)}#telehealth`;
+            const roomInput = document.getElementById('video-room-code');
+            const code = roomInput.value.trim();
+            if (!code) {
+                showRoomCodeError();
+                return;
+            }
+            clearRoomCodeError();
+
+            const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(code.toUpperCase())}#telehealth`;
             copyContactText(inviteUrl, 'Telehealth Invite Link');
             const label = document.getElementById('copy-link-label');
-            label.textContent = `Copied (${code})!`;
+            label.textContent = `Copied (${code.toUpperCase()})!`;
             setTimeout(() => {
                 label.textContent = "Copy Session Invite Link";
             }, 3000);

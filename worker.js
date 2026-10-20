@@ -13,17 +13,35 @@ export class ChatRoom extends DurableObject {
       return new Response("Expected websocket", { status: 426 });
     }
 
+    const url = new URL(request.url);
+    const clientName = url.searchParams.get("name") || "Connected Participant";
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
     const clientId = crypto.randomUUID();
-    server.serializeAttachment({ clientId });
+    server.serializeAttachment({ clientId, clientName });
 
     this.ctx.acceptWebSocket(server);
 
     const existing = this.ctx.getWebSockets().filter((ws) => ws !== server);
+    const existingPeers = [];
+
     for (const peer of existing) {
-      peer.send(JSON.stringify({ type: "peer-joined", peerId: clientId }));
+      const peerAttachment = peer.deserializeAttachment();
+      if (peerAttachment?.clientId) {
+        existingPeers.push({
+          peerId: peerAttachment.clientId,
+          name: peerAttachment.clientName || "Connected Participant",
+        });
+      }
+      peer.send(
+        JSON.stringify({
+          type: "peer-joined",
+          peerId: clientId,
+          name: clientName,
+        }),
+      );
     }
 
     server.send(
@@ -31,6 +49,7 @@ export class ChatRoom extends DurableObject {
         type: "connected",
         peerId: clientId,
         peerCount: existing.length,
+        peers: existingPeers,
       }),
     );
 
@@ -38,14 +57,48 @@ export class ChatRoom extends DurableObject {
   }
 
   async webSocketMessage(ws, message) {
-    const recipients = this.ctx.getWebSockets().filter((socket) => socket !== ws);
-    for (const recipient of recipients) {
-      recipient.send(message);
+    let data;
+    try {
+      data = JSON.parse(message);
+    } catch {
+      return;
+    }
+
+    const senderAttachment = ws.deserializeAttachment();
+    const fromPeerId = senderAttachment?.clientId;
+    const fromName = senderAttachment?.clientName || "Connected Participant";
+
+    const outgoingPayload = JSON.stringify({
+      ...data,
+      fromPeerId,
+      fromName,
+    });
+
+    const otherSockets = this.ctx.getWebSockets().filter((socket) => socket !== ws);
+
+    // If the message is targeted to a specific peer (offer, answer, ice-candidate), send only to that peer
+    if (data.targetPeerId) {
+      for (const recipient of otherSockets) {
+        const attachment = recipient.deserializeAttachment();
+        if (attachment?.clientId === data.targetPeerId) {
+          recipient.send(outgoingPayload);
+          break;
+        }
+      }
+    } else {
+      // Otherwise broadcast to all other peers in the room (e.g., chat messages)
+      for (const recipient of otherSockets) {
+        recipient.send(outgoingPayload);
+      }
     }
   }
 
   async webSocketClose(ws, code, reason, wasClean) {
-    ws.close(code, reason);
+    try {
+      ws.close(code, reason);
+    } catch {
+      // Ignore if already closed
+    }
     const attachment = ws.deserializeAttachment();
     const clientId = attachment?.clientId;
     const recipients = this.ctx.getWebSockets().filter((socket) => socket !== ws);
@@ -70,161 +123,11 @@ export default {
       return stub.fetch(request);
     }
 
+    // Serve static files if Cloudflare Workers Assets binding is present
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
     return new Response("Not found", { status: 404 });
   },
 };
-
-class SignalingClient {
-  constructor() {
-    this.ws = null;
-    this.peerId = null;
-    this.peers = new Map();
-    this.localStream = null;
-    this.onRemoteStream = null;
-    this.onPeerLeft = null;
-    this.onChatMessage = null;
-  }
-
-  async connect(roomId, localStream) {
-    this.localStream = localStream;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws?room=${encodeURIComponent(roomId)}`;
-
-    this.ws = new WebSocket(wsUrl);
-
-    this.ws.onmessage = (event) => {
-      let data;
-      try { data = JSON.parse(event.data); } catch { return; }
-      this._handleMessage(data);
-    };
-
-    this.ws.onclose = () => {
-      console.log("[signaling] WebSocket closed");
-      this.peers.forEach((_, peerId) => this._removePeer(peerId));
-    };
-
-    this.ws.onerror = (err) => {
-      console.error("[signaling] WebSocket error:", err);
-    };
-
-    return new Promise((resolve, reject) => {
-      this.ws.onopen = () => resolve();
-      this.ws.onerror = () => reject(new Error("WebSocket connection failed"));
-    });
-  }
-
-  _handleMessage(data) {
-    switch (data.type) {
-      case "connected":
-        this.peerId = data.peerId;
-        console.log(`[signaling] Connected as ${this.peerId}, ${data.peerCount} peer(s) in room`);
-        break;
-      case "peer-joined":
-        this._createOffer(data.peerId);
-        break;
-      case "peer-left":
-        this._removePeer(data.peerId);
-        if (this.onPeerLeft) this.onPeerLeft(data.peerId);
-        break;
-      case "offer":
-        this._handleOffer(data.peerId, data.sdp);
-        break;
-      case "answer":
-        this._handleAnswer(data.peerId, data.sdp);
-        break;
-      case "ice-candidate":
-        this._handleIceCandidate(data.peerId, data.candidate);
-        break;
-      case "chat":
-        if (this.onChatMessage) this.onChatMessage(data.sender, data.text);
-        break;
-    }
-  }
-
-  _send(data) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-    }
-  }
-
-  _createPeerConnection(peerId) {
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
-    this.peers.set(peerId, pc);
-
-    if (this.localStream) {
-      this.localStream.getTracks().forEach((track) => {
-        pc.addTrack(track, this.localStream);
-      });
-    }
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this._send({ type: "ice-candidate", peerId, candidate: event.candidate });
-      }
-    };
-
-    pc.ontrack = (event) => {
-      if (this.onRemoteStream) {
-        this.onRemoteStream(peerId, event.streams[0]);
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      console.log(`[signaling] Peer ${peerId} state: ${pc.connectionState}`);
-    };
-
-    return pc;
-  }
-
-  async _createOffer(peerId) {
-    const pc = this._createPeerConnection(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    this._send({ type: "offer", peerId, sdp: offer });
-  }
-
-  async _handleOffer(peerId, sdp) {
-    const pc = this._createPeerConnection(peerId);
-    await pc.setRemoteDescription(sdp);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    this._send({ type: "answer", peerId, sdp: answer });
-  }
-
-  async _handleAnswer(peerId, sdp) {
-    const pc = this.peers.get(peerId);
-    if (pc) await pc.setRemoteDescription(sdp);
-  }
-
-  async _handleIceCandidate(peerId, candidate) {
-    const pc = this.peers.get(peerId);
-    if (pc) await pc.addIceCandidate(candidate);
-  }
-
-  _removePeer(peerId) {
-    const pc = this.peers.get(peerId);
-    if (pc) { pc.close(); this.peers.delete(peerId); }
-  }
-
-  disconnect() {
-    if (this.ws) { this.ws.close(); this.ws = null; }
-    this.peers.forEach((_, peerId) => this._removePeer(peerId));
-  }
-
-  sendChatMessage(sender, text) {
-    this._send({ type: "chat", sender, text });
-  }
-
-  replaceVideoTrack(newTrack) {
-    for (const pc of this.peers.values()) {
-      const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
-      if (sender) sender.replaceTrack(newTrack);
-    }
-  }
-}
-
-if (typeof window !== "undefined") {
-  window.SignalingClient = SignalingClient;
-}
