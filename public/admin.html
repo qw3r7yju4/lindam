@@ -334,6 +334,9 @@
                             <p class="text-xs text-sage-500 mt-1">Manage received messages and sent mail. Organizing mail updates your shared portal log.</p>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-2">
+                            <button type="button" id="mark-all-mail-read" onclick="markAllInboxMailRead()" class="hidden px-3 py-2 rounded-xl bg-sage-600 hover:bg-sage-700 text-xs font-semibold text-white transition">
+                                Mark all as read
+                            </button>
                             <select id="email-folder-filter" onchange="renderEmailsCenter()" class="px-3 py-2 rounded-xl bg-sand-50 border border-sand-300 text-xs text-sage-800">
                                 <option value="inbox">Inbox</option>
                                 <option value="sent">Sent</option>
@@ -1658,6 +1661,41 @@
             }
         }
 
+        async function setEmailReadState(id, isRead) {
+            const email = emailLogs.find((item) => item.id === id);
+            if (!email || email.direction === 'outbound') return;
+            try {
+                await saveEmailOrganization({ ...email, read: isRead });
+                renderEmailsCenter();
+            } catch (err) {
+                showPortalToast(err.message || 'Could not update unread status.');
+            }
+        }
+
+        async function markAllInboxMailRead() {
+            const unreadInbox = emailLogs.filter((item) =>
+                item.direction !== 'outbound' &&
+                (item.folder || 'inbox') === 'inbox' &&
+                item.read !== true
+            );
+            if (unreadInbox.length === 0) return;
+            const button = document.getElementById('mark-all-mail-read');
+            button.disabled = true;
+            try {
+                for (const email of unreadInbox) {
+                    await saveEmailOrganization({ ...email, read: true });
+                }
+                renderEmailsCenter();
+                showPortalToast(`${unreadInbox.length} message${unreadInbox.length === 1 ? '' : 's'} marked as read.`);
+            } catch (err) {
+                showPortalToast(err.message || 'Could not mark all messages as read.');
+                await loadPortalData();
+                renderEmailsCenter();
+            } finally {
+                button.disabled = false;
+            }
+        }
+
         async function deleteEmail(id) {
             const email = emailLogs.find((item) => item.id === id);
             if (!email || !confirm(`Permanently delete "${email.subject || 'this email'}" from the portal mail log?`)) return;
@@ -1731,11 +1769,15 @@
             if (!emailList || !folderFilter || !searchInput) return;
 
             const folderFor = (item) => item.folder || (item.direction === 'outbound' ? 'sent' : 'inbox');
-            const inboxCount = emailLogs.filter((item) => folderFor(item) === 'inbox').length;
+            const unreadInboxCount = emailLogs.filter((item) =>
+                item.direction !== 'outbound' && folderFor(item) === 'inbox' && item.read !== true
+            ).length;
             badges.forEach((badge) => {
-                badge.textContent = String(inboxCount);
-                badge.classList.toggle('hidden', inboxCount === 0);
+                badge.textContent = String(unreadInboxCount);
+                badge.classList.toggle('hidden', unreadInboxCount === 0);
             });
+            const markAllReadButton = document.getElementById('mark-all-mail-read');
+            if (markAllReadButton) markAllReadButton.classList.toggle('hidden', unreadInboxCount === 0);
 
             const selectedFolder = folderFilter.value;
             const search = searchInput.value.trim().toLowerCase();
@@ -1755,6 +1797,7 @@
             emailList.innerHTML = visibleEmails.map((item) => {
                 const folder = folderFor(item);
                 const isInbound = item.direction !== 'outbound';
+                const isUnread = isInbound && item.read !== true;
                 const folderOptions = [
                     ['inbox', 'Inbox'],
                     ['sent', 'Sent'],
@@ -1766,7 +1809,7 @@
                         <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <span class="text-[10px] font-semibold uppercase tracking-wide text-sage-500">${isInbound ? 'Received' : 'Sent'} • ${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
-                                <h4 class="font-semibold text-sm text-sage-900 break-words">${escapeHtml(item.subject || '(No subject)')}</h4>
+                                <h4 class="font-semibold text-sm text-sage-900 break-words">${isUnread ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 align-middle" aria-label="Unread"></span>' : ''}${escapeHtml(item.subject || '(No subject)')}</h4>
                                 <p class="text-xs text-sage-600 break-all">${isInbound ? 'From' : 'To'}: <strong>${escapeHtml(isInbound ? item.from : item.to)}</strong></p>
                                 ${item.resultingStatus ? `<span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.resultingStatus === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${escapeHtml(item.resultingStatus)}</span>` : ''}
                                 ${!isInbound && item.deliveryStatus ? `<p class="text-[10px] text-sage-600 mt-1">${escapeHtml(item.deliveryStatus)}</p>` : ''}
@@ -1776,6 +1819,7 @@
                                 <select id="email-folder-${escapeHtml(item.id)}" onchange="organizeEmail('${escapeHtml(item.id)}', this.value)" class="px-2.5 py-1.5 rounded-lg bg-white border border-sand-300 text-[11px] text-sage-800">
                                     ${folderOptions}
                                 </select>
+                                ${isInbound ? `<button onclick="setEmailReadState('${escapeHtml(item.id)}', ${isUnread})" class="px-2.5 py-1.5 rounded-lg bg-white border border-sand-300 text-[11px] text-sage-700 hover:bg-sand-100">${isUnread ? 'Mark read' : 'Mark unread'}</button>` : ''}
                                 ${isInbound ? `<button onclick="replyToEmail('${escapeHtml(item.id)}')" class="px-2.5 py-1.5 rounded-lg bg-white border border-sand-300 text-[11px] text-sage-700 hover:bg-sand-100">Reply</button>` : ''}
                                 <button onclick="deleteEmail('${escapeHtml(item.id)}')" class="px-2.5 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] text-rose-700 hover:bg-rose-50">Delete</button>
                             </div>
