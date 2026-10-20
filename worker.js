@@ -10,6 +10,7 @@ export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.activeMfaChallenges = new Set();
+    this.activeOneTimeTokens = new Set();
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair("ping", "pong"),
     );
@@ -153,7 +154,10 @@ export class ChatRoom extends DurableObject {
         bootstrappedUser = true;
       }
 
-      const user = users.find((item) => item.username === username && item.active);
+      const matchingUsers = users.filter((item) =>
+        item.active && (item.username === username || item.email?.toLowerCase() === username)
+      );
+      const user = matchingUsers.length === 1 ? matchingUsers[0] : null;
       const salt = user ? hexToBytes(user.salt) : new Uint8Array(16);
       const iterations = user?.passwordIterations || AUTH_PASSWORD_ITERATIONS;
       const passwordHash = bootstrappedUser
@@ -473,6 +477,298 @@ export class ChatRoom extends DurableObject {
       return new Response(JSON.stringify({ user: publicPortalUser(user) }), { headers: jsonHeaders });
     }
 
+    if (url.pathname === "/internal/auth/account-email" && request.method === "POST") {
+      const body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid email update request." }), { status: 400, headers: jsonHeaders });
+      }
+      const actor = await this.getSessionUser(body.sessionToken);
+      if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const targetId = typeof body.userId === "string" ? body.userId : "";
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const target = users.find((item) => item.id === targetId && item.active);
+      if (!target || !isValidEmail(email)) {
+        return new Response(JSON.stringify({ error: target ? "Enter a valid email address." : "Account not found." }), {
+          status: target ? 400 : 404,
+          headers: jsonHeaders,
+        });
+      }
+      if (users.some((item) => item.id !== target.id && item.email?.toLowerCase() === email)) {
+        return new Response(JSON.stringify({ error: "That email address is already assigned to another account." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      if (target.email?.toLowerCase() === email) {
+        return new Response(JSON.stringify({ ok: true, unchanged: true }), { headers: jsonHeaders });
+      }
+      const rateKey = `auth:email-change:rate:${actor.id}`;
+      const rate = (await this.ctx.storage.get(rateKey)) || { count: 0, windowStartedAt: Date.now() };
+      if (Date.now() - rate.windowStartedAt > 60 * 60 * 1000) {
+        rate.count = 0;
+        rate.windowStartedAt = Date.now();
+      }
+      if (rate.count >= 5) {
+        return new Response(JSON.stringify({ error: "Too many email change requests. Try again later." }), {
+          status: 429,
+          headers: jsonHeaders,
+        });
+      }
+      rate.count += 1;
+      await this.ctx.storage.put(rateKey, rate);
+      const pending = await this.ctx.storage.list({ prefix: "auth:email-change:token:" });
+      for (const [key, change] of pending) {
+        if (change.userId === target.id) await this.ctx.storage.delete(key);
+      }
+      const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+      await this.ctx.storage.put(`auth:email-change:token:${await hashSessionToken(token)}`, {
+        userId: target.id,
+        email,
+        currentEmail: target.email,
+        expiresAt: Date.now() + 30 * 60 * 1000,
+      });
+      return new Response(JSON.stringify({
+        ok: true,
+        token,
+        verificationEmail: target.email,
+        displayName: target.displayName,
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/account-email/complete" && request.method === "POST") {
+      const body = await request.json();
+      const token = typeof body?.token === "string" ? body.token : "";
+      if (!/^[a-f0-9]{64}$/i.test(token)) {
+        return new Response(JSON.stringify({ error: "This email confirmation link is invalid or expired." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const tokenHash = await hashSessionToken(token);
+      if (this.activeOneTimeTokens.has(tokenHash)) {
+        return new Response(JSON.stringify({ error: "This email confirmation link is already being used." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      this.activeOneTimeTokens.add(tokenHash);
+      try {
+        const key = `auth:email-change:token:${tokenHash}`;
+        const change = await this.ctx.storage.get(key);
+        if (!change || change.expiresAt <= Date.now()) {
+          if (change) await this.ctx.storage.delete(key);
+          return new Response(JSON.stringify({ error: "This email confirmation link is invalid or expired." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const users = (await this.ctx.storage.get("auth:users")) || [];
+        const target = users.find((item) => item.id === change.userId && item.active);
+        if (!target || target.email?.toLowerCase() !== change.currentEmail?.toLowerCase() ||
+          !isValidEmail(change.email) ||
+          users.some((item) => item.id !== change.userId && item.email?.toLowerCase() === change.email)) {
+          await this.ctx.storage.delete(key);
+          return new Response(JSON.stringify({ error: "That email address can no longer be assigned. Request a new change." }), {
+            status: 409,
+            headers: jsonHeaders,
+          });
+        }
+        target.email = change.email;
+        await this.ctx.storage.put("auth:users", users);
+        const pending = await this.ctx.storage.list({ prefix: "auth:email-change:token:" });
+        for (const [pendingKey, item] of pending) {
+          if (item.userId === target.id) await this.ctx.storage.delete(pendingKey);
+        }
+        const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+        for (const [sessionKey, session] of sessions) {
+          if (session.userId === target.id) await this.ctx.storage.delete(sessionKey);
+        }
+        const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+        for (const [challengeKey, challenge] of challenges) {
+          if (challenge.userId === target.id) await this.ctx.storage.delete(challengeKey);
+        }
+        await this.ctx.storage.delete(`auth:mfa-email:${target.id}`);
+        return new Response(JSON.stringify({ ok: true, user: publicPortalUser(target) }), { headers: jsonHeaders });
+      } finally {
+        this.activeOneTimeTokens.delete(tokenHash);
+      }
+    }
+
+    if (url.pathname === "/internal/auth/account-email/cancel" && request.method === "POST") {
+      const body = await request.json();
+      if (typeof body?.token === "string" && /^[a-f0-9]{64}$/i.test(body.token)) {
+        await this.ctx.storage.delete(`auth:email-change:token:${await hashSessionToken(body.token)}`);
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/directory" && request.method === "POST") {
+      const body = await request.json();
+      const actor = await this.getSessionUser(body.sessionToken);
+      if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      return new Response(JSON.stringify({
+        users: users.filter((user) => user.active).map(({ id, username, displayName, email, role }) =>
+          ({ id, username, displayName, email: email || "", role })
+        ),
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/password-reset/create" && request.method === "POST") {
+      const body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid password reset request." }), { status: 400, headers: jsonHeaders });
+      }
+      const actor = body.sessionToken ? await this.getSessionUser(body.sessionToken) : null;
+      if (body.sessionToken && !actor) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      const resetLimitKey = `auth:password-reset:rate:${body.clientIp || "unknown"}`;
+      const rateLimit = (await this.ctx.storage.get(resetLimitKey)) || { count: 0, windowStartedAt: Date.now() };
+      if (Date.now() - rateLimit.windowStartedAt > 60 * 60 * 1000) {
+        rateLimit.count = 0;
+        rateLimit.windowStartedAt = Date.now();
+      }
+      if (rateLimit.count >= 10) {
+        return new Response(JSON.stringify({ error: "Too many reset requests. Try again later." }), {
+          status: 429,
+          headers: jsonHeaders,
+        });
+      }
+      rateLimit.count += 1;
+      await this.ctx.storage.put(resetLimitKey, rateLimit);
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const requestedEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      const target = actor
+        ? users.find((item) => item.active && (item.id === body.userId ||
+          (!body.userId && item.email?.toLowerCase() === requestedEmail)))
+        : users.find((item) => item.active && item.email?.toLowerCase() === requestedEmail);
+      if (!target || !isValidEmail(target.email)) {
+        if (actor) {
+          return new Response(JSON.stringify({ error: target ? "The account has no valid email address." : "Account not found." }), {
+            status: target ? 400 : 404,
+            headers: jsonHeaders,
+          });
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      }
+      const resets = await this.ctx.storage.list({ prefix: "auth:password-reset:token:" });
+      for (const [key, reset] of resets) {
+        if (reset.userId === target.id) await this.ctx.storage.delete(key);
+      }
+      const token = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+      const tokenHash = await hashSessionToken(token);
+      await this.ctx.storage.put(`auth:password-reset:token:${tokenHash}`, {
+        userId: target.id,
+        expiresAt: Date.now() + 30 * 60 * 1000,
+      });
+      return new Response(JSON.stringify({
+        ok: true,
+        token,
+        email: target.email,
+        displayName: target.displayName,
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/password-reset/complete" && request.method === "POST") {
+      const body = await request.json();
+      const token = typeof body?.token === "string" ? body.token : "";
+      const password = typeof body?.password === "string" ? body.password : "";
+      if (!/^[a-f0-9]{64}$/i.test(token) || password.length < 12 || password.length > 256) {
+        return new Response(JSON.stringify({ error: "Use a valid reset link and a password of 12-256 characters." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const tokenHash = await hashSessionToken(token);
+      if (this.activeOneTimeTokens.has(tokenHash)) {
+        return new Response(JSON.stringify({ error: "This password reset link is already being used." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      this.activeOneTimeTokens.add(tokenHash);
+      try {
+        const key = `auth:password-reset:token:${tokenHash}`;
+        const reset = await this.ctx.storage.get(key);
+        if (!reset || reset.expiresAt <= Date.now()) {
+          if (reset) await this.ctx.storage.delete(key);
+          return new Response(JSON.stringify({ error: "This password reset link is invalid or expired. Request a new one." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const users = (await this.ctx.storage.get("auth:users")) || [];
+        const target = users.find((item) => item.id === reset.userId && item.active);
+        if (!target) {
+          await this.ctx.storage.delete(key);
+          return new Response(JSON.stringify({ error: "This password reset link is invalid or expired. Request a new one." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        target.salt = bytesToHex(salt);
+        target.passwordHash = await hashPortalPassword(password, salt, AUTH_PASSWORD_ITERATIONS);
+        target.passwordIterations = AUTH_PASSWORD_ITERATIONS;
+        await this.ctx.storage.put("auth:users", users);
+        const resets = await this.ctx.storage.list({ prefix: "auth:password-reset:token:" });
+        for (const [resetKey, item] of resets) {
+          if (item.userId === target.id) await this.ctx.storage.delete(resetKey);
+        }
+        const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+        for (const [sessionKey, session] of sessions) {
+          if (session.userId === target.id) await this.ctx.storage.delete(sessionKey);
+        }
+        const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+        for (const [challengeKey, challenge] of challenges) {
+          if (challenge.userId === target.id) await this.ctx.storage.delete(challengeKey);
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      } finally {
+        this.activeOneTimeTokens.delete(tokenHash);
+      }
+    }
+
+    if (url.pathname === "/internal/auth/password-reset/cancel" && request.method === "POST") {
+      const body = await request.json();
+      if (typeof body?.token === "string" && /^[a-f0-9]{64}$/i.test(body.token)) {
+        await this.ctx.storage.delete(`auth:password-reset:token:${await hashSessionToken(body.token)}`);
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/availability") {
+      const schedules = (await this.ctx.storage.get("availability")) || {};
+      if (request.method === "GET") {
+        const users = (await this.ctx.storage.get("auth:users")) || [];
+        return new Response(JSON.stringify({
+          schedules: users.filter((user) => user.active).map((user) => ({
+            userId: user.id,
+            displayName: user.displayName,
+            email: user.email,
+            weekdays: schedules[user.id]?.weekdays || {},
+            exceptions: schedules[user.id]?.exceptions || [],
+          })),
+        }), { headers: jsonHeaders });
+      }
+      if (request.method === "POST") {
+        const body = await request.json();
+        const actor = await this.getSessionUser(body.sessionToken);
+        if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+        if (!isValidAvailability(body.availability)) {
+          return new Response(JSON.stringify({ error: "Availability contains an invalid day, time range, or exception." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        schedules[actor.id] = body.availability;
+        await this.ctx.storage.put("availability", schedules);
+        return new Response(JSON.stringify({ ok: true, availability: schedules[actor.id] }), { headers: jsonHeaders });
+      }
+    }
+
     if (url.pathname === "/internal/auth/change-password" && request.method === "POST") {
       const { sessionToken, currentPassword, newPassword } = await request.json();
       const actor = await this.getSessionUser(sessionToken);
@@ -563,8 +859,8 @@ export class ChatRoom extends DurableObject {
             error: "Enter a valid email, 3-32 character username, display name, password of at least 12 characters, and valid role.",
           }), { status: 400, headers: jsonHeaders });
         }
-        if (users.some((item) => item.username === username)) {
-          return new Response(JSON.stringify({ error: "That username is already in use." }), {
+        if (users.some((item) => item.username === username || item.email?.toLowerCase() === email)) {
+          return new Response(JSON.stringify({ error: "That username or email address is already in use." }), {
             status: 409,
             headers: jsonHeaders,
           });
@@ -604,10 +900,22 @@ export class ChatRoom extends DurableObject {
           });
         }
         if (body.action === "reset-mfa") {
-          const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : target.email;
+          const email = target.email;
+          if (typeof body.email === "string" && body.email.trim().toLowerCase() !== email?.toLowerCase()) {
+            return new Response(JSON.stringify({ error: "Email changes require confirmation from the current account email." }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
           if (!isValidEmail(email)) {
             return new Response(JSON.stringify({ error: "Enter a valid email address." }), {
               status: 400,
+              headers: jsonHeaders,
+            });
+          }
+          if (users.some((item) => item.id !== target.id && item.email?.toLowerCase() === email)) {
+            return new Response(JSON.stringify({ error: "That email address is already assigned to another account." }), {
+              status: 409,
               headers: jsonHeaders,
             });
           }
@@ -630,25 +938,10 @@ export class ChatRoom extends DurableObject {
           return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
         }
         if (body.action === "update-email") {
-          const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-          if (!isValidEmail(email)) {
-            return new Response(JSON.stringify({ error: "Enter a valid email address." }), {
-              status: 400,
-              headers: jsonHeaders,
-            });
-          }
-          target.email = email;
-          await this.ctx.storage.put("auth:users", users);
-          const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
-          for (const [key, session] of sessions) {
-            if (session.userId === target.id) await this.ctx.storage.delete(key);
-          }
-          const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
-          for (const [key, challenge] of challenges) {
-            if (challenge.userId === target.id) await this.ctx.storage.delete(key);
-          }
-          await this.ctx.storage.delete(`auth:mfa-email:${target.id}`);
-          return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+          return new Response(JSON.stringify({ error: "Email changes require confirmation from the current account email." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
         }
         if (body.action === "disable-mfa") {
           if (target.id === actor.id) {
@@ -862,6 +1155,19 @@ export class ChatRoom extends DurableObject {
           return new Response(JSON.stringify({ appointments: mergedAppointments }), { headers: jsonHeaders });
         }
         const item = body.appointment;
+        if (item && isValidEmail(item.clientEmail)) {
+          const existing = appointments.find((appointment) => appointment.id === item.id);
+          const unchangedSlot = existing && existing.hostUserId === item.hostUserId &&
+            existing.date === item.date && existing.time === item.time &&
+            Number(existing.duration || 50) === Number(item.duration || 50);
+          if (!unchangedSlot) {
+            const schedules = (await this.ctx.storage.get("availability")) || {};
+            const reason = getAppointmentAvailabilityError(item, schedules[item.hostUserId], appointments, item.id);
+            if (reason) {
+              return new Response(JSON.stringify({ error: reason }), { status: 400, headers: jsonHeaders });
+            }
+          }
+        }
         if (item?.reminderEnabled === true) {
           const users = (await this.ctx.storage.get("auth:users")) || [];
           if (!isAppointmentReminderConfigured(item, users)) {
@@ -1228,6 +1534,80 @@ function getAppointmentStartTime(appointment) {
   } catch {
     return null;
   }
+}
+
+function isValidAvailability(availability) {
+  if (!availability || typeof availability !== "object" || Array.isArray(availability) ||
+    !availability.weekdays || typeof availability.weekdays !== "object" || !Array.isArray(availability.exceptions) ||
+    availability.exceptions.length > 100) return false;
+  const validIntervals = (intervals) => Array.isArray(intervals) && intervals.length <= 4 &&
+    intervals.every((interval) => {
+      if (!interval || typeof interval.start !== "string" || typeof interval.end !== "string") return false;
+      const start = interval.start.match(/^(\d{2}):(\d{2})$/);
+      const end = interval.end.match(/^(\d{2}):(\d{2})$/);
+      if (!start || !end || Number(start[1]) > 23 || Number(start[2]) > 59 ||
+        Number(end[1]) > 23 || Number(end[2]) > 59) return false;
+      return Number(start[1]) * 60 + Number(start[2]) < Number(end[1]) * 60 + Number(end[2]);
+    }) && intervals.every((interval, index) => {
+      const start = Number(interval.start.slice(0, 2)) * 60 + Number(interval.start.slice(3));
+      const end = Number(interval.end.slice(0, 2)) * 60 + Number(interval.end.slice(3));
+      return intervals.every((other, otherIndex) => {
+        if (otherIndex <= index) return true;
+        const otherStart = Number(other.start.slice(0, 2)) * 60 + Number(other.start.slice(3));
+        const otherEnd = Number(other.end.slice(0, 2)) * 60 + Number(other.end.slice(3));
+        return end <= otherStart || otherEnd <= start;
+      });
+    });
+  const dayKeys = Object.keys(availability.weekdays);
+  if (dayKeys.some((day) => !/^[0-6]$/.test(day) || !validIntervals(availability.weekdays[day]))) return false;
+  const dates = new Set();
+  return availability.exceptions.every((exception) => {
+    if (!exception || typeof exception.date !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || dates.has(exception.date) ||
+      !validIntervals(exception.intervals)) return false;
+    const [year, month, day] = exception.date.split("-").map(Number);
+    if (new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) !== exception.date) return false;
+    dates.add(exception.date);
+    return true;
+  });
+}
+
+function getAppointmentAvailabilityError(appointment, schedule, appointments, ignoredId) {
+  if (!schedule || !isValidAvailability(schedule)) {
+    return "No availability is set for this staff member. Add weekly hours in Users & Profile first.";
+  }
+  if (typeof appointment.date !== "string" || typeof appointment.time !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(appointment.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time)) {
+    return "Choose a valid appointment date and available start time.";
+  }
+  if (getAppointmentStartTime(appointment) === null) return "That local time does not exist in the selected time zone.";
+  const duration = Number(appointment.duration || 50);
+  if (!Number.isInteger(duration) || duration < 15 || duration > 240) return "Choose a valid appointment duration.";
+  const [year, month, day] = appointment.date.split("-").map(Number);
+  if (new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) !== appointment.date) {
+    return "Choose a valid appointment date.";
+  }
+  const exception = schedule.exceptions.find((item) => item.date === appointment.date);
+  const intervals = exception ? exception.intervals : schedule.weekdays[String(new Date(Date.UTC(year, month - 1, day)).getUTCDay())] || [];
+  const start = Number(appointment.time.slice(0, 2)) * 60 + Number(appointment.time.slice(3));
+  const end = start + duration;
+  if (end >= 24 * 60) return "The appointment must end before midnight in the selected time zone.";
+  const endTime = `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+  if (getAppointmentStartTime({ ...appointment, time: endTime }) === null) {
+    return "The appointment would end at a local time that does not exist in the selected time zone.";
+  }
+  if (!intervals.some((interval) =>
+    Number(interval.start.slice(0, 2)) * 60 + Number(interval.start.slice(3)) <= start &&
+    Number(interval.end.slice(0, 2)) * 60 + Number(interval.end.slice(3)) >= end
+  )) return "That time is outside the selected staff member's availability.";
+  const conflict = appointments.some((item) => {
+    if (item.id === ignoredId || item.hostUserId !== appointment.hostUserId || item.date !== appointment.date ||
+      item.status === "Reschedule Requested" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time || "")) return false;
+    const otherStart = Number(item.time.slice(0, 2)) * 60 + Number(item.time.slice(3));
+    const otherEnd = otherStart + Number(item.duration || 50);
+    return start < otherEnd && otherStart < end;
+  });
+  return conflict ? "That time overlaps another appointment for this staff member." : "";
 }
 
 function isAppointmentReminderConfigured(appointment, users) {
@@ -1775,6 +2155,254 @@ export default {
           "Set-Cookie": `${AUTH_SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${url.protocol === "https:" ? "; Secure" : ""}`,
         },
       });
+    }
+
+    if (["/api/account/email", "/api/account/email-for-user"].includes(url.pathname) && request.method === "POST") {
+      const actor = await isAuthorized(request, env);
+      if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid email update request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid email update request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        return new Response(JSON.stringify({ error: "Email confirmation is not configured. Set the Cloudflare EMAIL binding and SENDER_EMAIL." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const stub = getAdminStoreStub(env);
+      const changeResponse = await stub.fetch(new Request("https://internal/internal/auth/account-email", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          ...body,
+          userId: url.pathname === "/api/account/email" ? actor.id : body.userId,
+          sessionToken: getSessionToken(request),
+        }),
+      }));
+      const change = await changeResponse.json();
+      if (!changeResponse.ok) {
+        return new Response(JSON.stringify({ error: change.error || "Could not start the email update." }), {
+          status: changeResponse.status,
+          headers: jsonHeaders,
+        });
+      }
+      if (change.unchanged) return new Response(JSON.stringify({ ok: true, unchanged: true }), { headers: jsonHeaders });
+      const verifyUrl = new URL("/verify-email.html", url.origin);
+      verifyUrl.searchParams.set("token", change.token);
+      try {
+        await env.EMAIL.send({
+          from: env.SENDER_EMAIL,
+          to: change.verificationEmail,
+          subject: "Confirm a Clinician Portal email change",
+          text: `Hello ${change.displayName},\n\nA request was made to change the email address on your Clinician Portal account. To confirm the change, open this single-use link within 30 minutes:\n${verifyUrl.href}\n\nIf you did not request this change, do not use the link. Your account email remains unchanged.`,
+        });
+      } catch (error) {
+        await stub.fetch(new Request("https://internal/internal/auth/account-email/cancel", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ token: change.token }),
+        }));
+        console.error("Portal email change confirmation delivery failed:", error);
+        return new Response(JSON.stringify({ error: "Could not send the email confirmation. Check the Cloudflare Email binding and try again." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, confirmationRequired: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/api/directory" && request.method === "GET") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/directory", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ sessionToken: getSessionToken(request) }),
+      }));
+    }
+
+    if (url.pathname === "/api/account/email/confirm" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid email confirmation request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid email confirmation request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/account-email/complete", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }));
+    }
+
+    if (url.pathname === "/api/availability") {
+      const actor = await isAuthorized(request, env);
+      if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const stub = getAdminStoreStub(env);
+      if (request.method === "GET") {
+        return stub.fetch(new Request("https://internal/internal/availability", {
+          method: "GET",
+          headers: jsonHeaders,
+        }));
+      }
+      if (request.method === "POST") {
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return new Response(JSON.stringify({ error: "Invalid availability request." }), { status: 400, headers: jsonHeaders });
+        }
+        return stub.fetch(new Request("https://internal/internal/availability", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+        }));
+      }
+      return new Response(JSON.stringify({ error: "Method not allowed." }), { status: 405, headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/api/password-reset/request" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid password reset request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid password reset request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        return new Response(JSON.stringify({ error: "Password reset email is not configured. Set the Cloudflare EMAIL binding and SENDER_EMAIL." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const actor = await isAuthorized(request, env);
+      const stub = getAdminStoreStub(env);
+      const createRes = await stub.fetch(new Request("https://internal/internal/auth/password-reset/create", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          email: body.email,
+          userId: body.userId,
+          sessionToken: actor ? getSessionToken(request) : undefined,
+          clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
+        }),
+      }));
+      const reset = await createRes.json();
+      if (!createRes.ok) {
+        if (actor || createRes.status === 429) {
+          return new Response(JSON.stringify({ error: reset.error || "Could not create the password reset link." }), {
+            status: createRes.status,
+            headers: jsonHeaders,
+          });
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      }
+      if (!reset.token) return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      const resetUrl = new URL("/reset-password.html", url.origin);
+      resetUrl.searchParams.set("token", reset.token);
+      try {
+        await env.EMAIL.send({
+          from: env.SENDER_EMAIL,
+          to: reset.email,
+          subject: "Reset your Clinician Portal password",
+          text: `Hello ${reset.displayName},\n\nUse this link to set a new Clinician Portal password. It expires in 30 minutes and can only be used once:\n${resetUrl.href}\n\nIf you did not request this change, you can ignore this email.`,
+        });
+      } catch (error) {
+        await stub.fetch(new Request("https://internal/internal/auth/password-reset/cancel", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ token: reset.token }),
+        }));
+        console.error("Portal password reset email delivery failed:", error);
+        return new Response(JSON.stringify({ error: "Could not send the reset link. Check the Cloudflare Email binding and try again." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/api/password-reset/complete" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid password reset request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/password-reset/complete", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }));
+    }
+
+    if (url.pathname === "/api/users/reset-password" && request.method === "POST") {
+      const actor = await isAuthorized(request, env);
+      if (!actor) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        return new Response(JSON.stringify({ error: "Password reset email is not configured. Set the Cloudflare EMAIL binding and SENDER_EMAIL." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      const stub = getAdminStoreStub(env);
+      const createRes = await stub.fetch(new Request("https://internal/internal/auth/password-reset/create", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          userId: new URL(request.url).searchParams.get("id"),
+          sessionToken: getSessionToken(request),
+          clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
+        }),
+      }));
+      const reset = await createRes.json();
+      if (!createRes.ok) {
+        return new Response(JSON.stringify({ error: reset.error || "Could not create the password reset link." }), {
+          status: createRes.status,
+          headers: jsonHeaders,
+        });
+      }
+      if (reset.token) {
+        const resetUrl = new URL("/reset-password.html", url.origin);
+        resetUrl.searchParams.set("token", reset.token);
+        try {
+          await env.EMAIL.send({
+            from: env.SENDER_EMAIL,
+            to: reset.email,
+            subject: "Reset your Clinician Portal password",
+            text: `Hello ${reset.displayName},\n\nUse this link to set a new Clinician Portal password. It expires in 30 minutes and can only be used once:\n${resetUrl.href}\n\nIf you did not request this change, you can ignore this email.`,
+          });
+        } catch (error) {
+          await stub.fetch(new Request("https://internal/internal/auth/password-reset/cancel", {
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({ token: reset.token }),
+          }));
+          console.error("Portal account password reset email delivery failed:", error);
+          return new Response(JSON.stringify({ error: "Could not send the reset link. Check the Cloudflare Email binding and try again." }), {
+            status: 503,
+            headers: jsonHeaders,
+          });
+        }
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
     }
 
     if (url.pathname === "/api/users") {

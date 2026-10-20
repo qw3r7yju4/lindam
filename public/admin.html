@@ -75,14 +75,14 @@
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="login-username" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1.5">
-                        Username
+                        Username or email
                     </label>
                     <input
                         type="text"
                         id="login-username"
                         required
                         autocomplete="username"
-                        placeholder="Enter username"
+                        placeholder="Username or account email"
                         class="w-full px-4 py-3 rounded-xl bg-sand-50 border border-sand-300 text-sage-900 text-sm focus:outline-none focus:ring-2 focus:ring-sage-600"
                     >
                 </div>
@@ -103,7 +103,7 @@
 
                 <div>
                     <label for="login-email" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1.5">
-                        Account email (required if not already on file)
+                        Account email (only needed during initial account setup)
                     </label>
                     <input
                         type="email"
@@ -127,6 +127,9 @@
                     <span>Sign In to Portal</span>
                 </button>
             </form>
+            <div class="text-center -mt-3">
+                <a href="reset-password.html" class="text-xs text-sage-600 hover:text-sage-900 underline">Forgot your password?</a>
+            </div>
 
             <form id="mfa-form" class="hidden space-y-4">
                 <p id="mfa-instruction" class="text-sm text-sage-700 text-center"></p>
@@ -188,6 +191,10 @@
                         <i data-lucide="clock" class="w-4 h-4"></i>
                         <span>Hours Tracker</span>
                     </button>
+                    <button onclick="switchPortalTab('users')" id="tab-btn-users" class="portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                        <span>Users &amp; Profile</span>
+                    </button>
                 </nav>
 
                 <!-- Right Actions -->
@@ -216,6 +223,58 @@
 
         <!-- Main Workspace Container -->
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <section id="portal-tab-users" class="hidden space-y-8">
+                <div class="bg-white rounded-3xl border border-sand-200 shadow-sm p-6 sm:p-8">
+                    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-sand-200 pb-5">
+                        <div>
+                            <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Users &amp; Profile</h2>
+                            <p class="text-sm text-sage-600 mt-1">Edit your profile, security settings, and weekly availability.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="openMfaSettings()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-800 text-xs font-semibold">Security &amp; MFA</button>
+                            <button type="button" onclick="openPasswordChange()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-800 text-xs font-semibold">Change Password</button>
+                            <button id="profile-manage-users-button" type="button" onclick="openUserManagement()" class="hidden px-4 py-2.5 rounded-xl bg-sage-600 text-white text-xs font-semibold">Create / Deactivate Users</button>
+                        </div>
+                    </div>
+                    <form id="profile-email-form" class="max-w-xl space-y-3 pt-5">
+                        <h3 class="font-serif text-xl font-semibold text-sage-900">Edit Profile</h3>
+                        <p class="text-xs text-sage-600">Your email is used for account recovery and email MFA. Changes take effect only after confirmation from the current account email.</p>
+                        <label for="profile-email" class="block text-xs font-semibold text-sage-800">Email address
+                            <input id="profile-email" type="email" required autocomplete="email" class="mt-1 w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                        </label>
+                        <button type="submit" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold">Request Email Change</button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-sand-200 shadow-sm p-6 sm:p-8 space-y-5">
+                    <div>
+                        <h3 class="font-serif text-xl font-semibold text-sage-900">My Weekly Availability</h3>
+                        <p class="text-xs text-sage-600 mt-1">Set one regular availability window per weekday. Closed dates and date-specific hours can be added below. Times use Eastern Time.</p>
+                    </div>
+                    <form id="availability-form" class="space-y-4">
+                        <div id="weekly-availability" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                        <div class="border-t border-sand-200 pt-4 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-sage-900">Date-specific exceptions</h4>
+                                    <p class="text-xs text-sage-500">An exception replaces your weekly hours for that date.</p>
+                                </div>
+                                <button type="button" onclick="addAvailabilityException()" class="px-3 py-2 rounded-xl border border-sand-300 text-sage-700 text-xs font-semibold">Add exception</button>
+                            </div>
+                            <div id="availability-exceptions" class="space-y-2"></div>
+                        </div>
+                        <button type="submit" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold">Save Availability</button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-sand-200 shadow-sm p-6 sm:p-8">
+                    <div class="mb-4">
+                        <h3 class="font-serif text-xl font-semibold text-sage-900">Portal Accounts</h3>
+                        <p class="text-xs text-sage-600 mt-1">Request an email change (the current address must confirm it) or send a password-reset link to an account.</p>
+                    </div>
+                    <div id="portal-directory-list" class="space-y-3"></div>
+                </div>
+            </section>
 
             <!-- =================================================================
                  TAB 1: CALENDAR, APPOINTMENTS, CONFIRMATIONS & .ICS
@@ -659,8 +718,8 @@
                         <input type="date" id="appt-date" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Start Time *</label>
-                        <input type="time" id="appt-time" required value="10:00" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                        <label for="appt-time" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Available Start Time *</label>
+                        <select id="appt-time" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm"></select>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Duration (Min)</label>
@@ -677,6 +736,7 @@
                 <div>
                     <label for="appt-host-staff" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Hosting Staff Member *</label>
                     <select id="appt-host-staff" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm"></select>
+                    <p id="appt-availability-help" class="text-[11px] text-sage-500 mt-1">Choose a staff member, date, and duration to view available start times.</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -965,6 +1025,8 @@
         let pendingMfaChallenge = null;
         let portalUsers = [];
         let appointmentStaffUsers = [];
+        let staffSchedules = [];
+        let currentEditingAppointmentId = '';
         let appointments = [];
         let hoursLogs = [];
         let emailLogs = [];
@@ -1092,6 +1154,170 @@
             } catch {
                 document.getElementById('login-error').textContent = 'Could not verify your session. Please sign in again.';
                 document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        async function loadUsersProfilePage() {
+            const list = document.getElementById('portal-directory-list');
+            list.textContent = 'Loading accounts...';
+            try {
+                const [directoryResponse, availabilityResponse] = await Promise.all([
+                    fetch('/api/directory', { cache: 'no-store' }),
+                    fetch('/api/availability', { cache: 'no-store' })
+                ]);
+                const [directoryData, availabilityData] = await Promise.all([
+                    directoryResponse.json(),
+                    availabilityResponse.json()
+                ]);
+                if (!directoryResponse.ok) throw new Error(directoryData.error || 'Could not load portal accounts.');
+                if (!availabilityResponse.ok) throw new Error(availabilityData.error || 'Could not load staff availability.');
+                portalUsers = directoryData.users || [];
+                staffSchedules = availabilityData.schedules || [];
+                list.innerHTML = portalUsers.map((user) => `
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto_auto] items-end gap-3 bg-sand-50 border border-sand-200 rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-sage-900 truncate">${escapeHtml(user.displayName)}</p>
+                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : 'Staff'}</p>
+                        </div>
+                        <label class="text-[11px] font-semibold text-sage-700">Account email
+                            <input id="directory-email-${escapeHtml(user.id)}" type="email" required value="${escapeHtml(user.email)}" class="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-sand-300 text-xs">
+                        </label>
+                        <button type="button" onclick="saveDirectoryEmail('${escapeHtml(user.id)}')" class="px-3 py-2 rounded-lg bg-sage-600 text-white text-xs font-semibold">Save email</button>
+                        <button type="button" onclick="resetPortalUserPassword('${escapeHtml(user.id)}', '${escapeHtml(user.username)}')" class="px-3 py-2 rounded-lg border border-sand-300 text-sage-800 text-xs font-semibold">Email reset link</button>
+                    </div>
+                `).join('') || '<p class="text-xs text-sage-500">No active accounts found.</p>';
+                const myAvailability = staffSchedules.find((schedule) => schedule.userId === currentPortalUser.id);
+                renderWeeklyAvailability(myAvailability || { weekdays: {}, exceptions: [] });
+                document.getElementById('profile-email').value = currentPortalUser.email || '';
+            } catch (error) {
+                list.textContent = error.message || 'Could not load the users page.';
+            }
+        }
+
+        const availabilityWeekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        function renderWeeklyAvailability(schedule) {
+            const weekdays = schedule.weekdays || {};
+            document.getElementById('weekly-availability').innerHTML = availabilityWeekdays.map((day, index) => {
+                const interval = (weekdays[String(index)] || [])[0] || {};
+                return `
+                    <div class="grid grid-cols-[auto_1fr_1fr] items-center gap-2 rounded-xl border border-sand-200 bg-sand-50 p-3">
+                        <label class="flex items-center gap-2 text-xs font-semibold text-sage-800">
+                            <input id="weekly-${index}-active" type="checkbox" ${interval.start ? 'checked' : ''} class="rounded text-sage-600">
+                            ${day}
+                        </label>
+                        <input id="weekly-${index}-start" type="time" value="${escapeHtml(interval.start || '09:00')}" aria-label="${day} start" class="min-w-0 px-2 py-2 rounded-lg border border-sand-300 text-xs">
+                        <input id="weekly-${index}-end" type="time" value="${escapeHtml(interval.end || '17:00')}" aria-label="${day} end" class="min-w-0 px-2 py-2 rounded-lg border border-sand-300 text-xs">
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('availability-exceptions').innerHTML = '';
+            (schedule.exceptions || []).forEach(addAvailabilityException);
+        }
+
+        function addAvailabilityException(exception = {}) {
+            const row = document.createElement('div');
+            row.className = 'availability-exception-row grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_1fr_auto] items-center gap-2 rounded-xl border border-sand-200 bg-sand-50 p-3';
+            const closed = !exception.intervals?.length;
+            const interval = exception.intervals?.[0] || {};
+            row.innerHTML = `
+                <input type="date" class="exception-date min-w-0 px-2 py-2 rounded-lg border border-sand-300 text-xs" value="${escapeHtml(exception.date || '')}" aria-label="Exception date">
+                <label class="flex items-center gap-1.5 text-[11px] font-semibold text-sage-700"><input type="checkbox" class="exception-closed rounded text-sage-600" ${closed ? 'checked' : ''}> Closed</label>
+                <input type="time" class="exception-start min-w-0 px-2 py-2 rounded-lg border border-sand-300 text-xs" value="${escapeHtml(interval.start || '09:00')}" aria-label="Exception start time">
+                <input type="time" class="exception-end min-w-0 px-2 py-2 rounded-lg border border-sand-300 text-xs" value="${escapeHtml(interval.end || '17:00')}" aria-label="Exception end time">
+                <button type="button" class="remove-exception px-2 py-2 rounded-lg text-rose-700 text-xs font-semibold" aria-label="Remove exception">Remove</button>
+            `;
+            row.querySelector('.remove-exception').addEventListener('click', () => row.remove());
+            row.querySelector('.exception-closed').addEventListener('change', (event) => {
+                row.querySelector('.exception-start').disabled = event.target.checked;
+                row.querySelector('.exception-end').disabled = event.target.checked;
+            });
+            row.querySelector('.exception-start').disabled = closed;
+            row.querySelector('.exception-end').disabled = closed;
+            document.getElementById('availability-exceptions').append(row);
+        }
+
+        document.getElementById('availability-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const weekdays = {};
+            for (let day = 0; day < 7; day++) {
+                if (!document.getElementById(`weekly-${day}-active`).checked) continue;
+                const start = document.getElementById(`weekly-${day}-start`).value;
+                const end = document.getElementById(`weekly-${day}-end`).value;
+                if (!start || !end || start >= end) {
+                    showPortalToast(`Enter a valid start and end time for ${availabilityWeekdays[day]}.`);
+                    return;
+                }
+                weekdays[String(day)] = [{
+                    start,
+                    end
+                }];
+            }
+            const exceptions = [];
+            for (const row of document.querySelectorAll('.availability-exception-row')) {
+                const date = row.querySelector('.exception-date').value;
+                const closed = row.querySelector('.exception-closed').checked;
+                const start = row.querySelector('.exception-start').value;
+                const end = row.querySelector('.exception-end').value;
+                if (!date || (!closed && (!start || !end || start >= end)) ||
+                    exceptions.some((exception) => exception.date === date)) {
+                    showPortalToast('Enter unique exception dates and valid hours for each open exception.');
+                    return;
+                }
+                exceptions.push({ date, intervals: closed ? [] : [{ start, end }] });
+            }
+            try {
+                const response = await fetch('/api/availability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ availability: { weekdays, exceptions } })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not save availability.');
+                const schedule = staffSchedules.find((item) => item.userId === currentPortalUser.id);
+                if (schedule) Object.assign(schedule, data.availability);
+                else staffSchedules.push({ userId: currentPortalUser.id, ...data.availability });
+                showPortalToast('Weekly availability saved.');
+            } catch (error) {
+                showPortalToast(error.message || 'Could not save availability.');
+            }
+        });
+
+        document.getElementById('profile-email-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const response = await fetch('/api/account/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: document.getElementById('profile-email').value.trim() })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not update your email.');
+                showPortalToast(data.unchanged
+                    ? 'That is already your account email.'
+                    : 'Confirmation link sent to your current account email.');
+            } catch (error) {
+                showPortalToast(error.message || 'Could not update your email.');
+            }
+        });
+
+        async function saveDirectoryEmail(userId) {
+            const email = document.getElementById(`directory-email-${userId}`)?.value.trim();
+            if (!email) return showPortalToast('Enter a valid email address.');
+            try {
+                const response = await fetch('/api/account/email-for-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, email })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not update the account email.');
+                showPortalToast(data.unchanged
+                    ? 'That is already the account email.'
+                    : 'Confirmation link sent to the current account email.');
+                await loadUsersProfilePage();
+            } catch (error) {
+                showPortalToast(error.message || 'Could not update the account email.');
             }
         }
 
@@ -1350,40 +1576,27 @@
         }
 
         async function resetPortalUserPassword(id, username) {
-            const password = prompt(`Enter a temporary password for ${username} (at least 12 characters):`);
-            if (password === null) return;
-            if (password.length < 12 || password.length > 256) {
-                showPortalToast('Temporary passwords must be 12-256 characters long.');
-                return;
-            }
+            if (!confirm(`Send a single-use password reset link to ${username}'s account email?`)) return;
             try {
-                const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
-                    method: 'PATCH',
+                const res = await fetch(`/api/users/reset-password?id=${encodeURIComponent(id)}`, {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Could not reset password.');
-                showPortalToast(`Password reset. Give ${username} the temporary password securely.`);
+                if (!res.ok) throw new Error(data.error || 'Could not send the password reset link.');
+                showPortalToast(`Password reset link sent to ${username}'s account email.`);
             } catch (err) {
-                showPortalToast(err.message || 'Could not reset password.');
+                showPortalToast(err.message || 'Could not send the password reset link.');
             }
         }
 
         async function resetPortalUserMfa(id, username) {
-            const currentEmail = portalUsers.find((user) => user.id === id)?.email || '';
-            const email = prompt(`Confirm or update the email address for ${username}:`, currentEmail);
-            if (email === null) return;
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-                showPortalToast('Enter a valid email address.');
-                return;
-            }
             if (!confirm(`Reset MFA for ${username}? Their active sessions will be signed out and email codes will be required.`)) return;
             try {
                 const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'reset-mfa', email: email.trim() })
+                    body: JSON.stringify({ action: 'reset-mfa' })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Could not reset MFA.');
@@ -1408,20 +1621,17 @@
                 return;
             }
             try {
-                const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
-                    method: 'PATCH',
+                const res = await fetch('/api/account/email-for-user', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'update-email', email: email.trim() })
+                    body: JSON.stringify({ userId: id, email: email.trim() })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Could not update email.');
                 await loadPortalUsers();
-                if (id === currentPortalUser.id) {
-                    await logoutPortal();
-                    showPortalToast('Your email was updated. Sign in again.');
-                } else {
-                    showPortalToast(`Email updated for ${username}.`);
-                }
+                showPortalToast(data.unchanged
+                    ? `${username} already uses that email.`
+                    : `Confirmation link sent to ${username}'s current email.`);
             } catch (err) {
                 showPortalToast(err.message || 'Could not update email.');
             }
@@ -1448,6 +1658,8 @@
             currentPortalUser = user;
             document.getElementById('portal-user-label').textContent = user.displayName;
             document.getElementById('manage-users-button').classList.toggle('hidden', user.role !== 'admin');
+            document.getElementById('profile-manage-users-button').classList.toggle('hidden', user.role !== 'admin');
+            document.getElementById('profile-email').value = user.email || '';
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('portal-dashboard').classList.remove('hidden');
             await refreshPortalState();
@@ -1478,7 +1690,7 @@
         }
 
         function switchPortalTab(tabName) {
-            ['calendar', 'emails', 'video', 'hours'].forEach((t) => {
+            ['calendar', 'emails', 'video', 'hours', 'users'].forEach((t) => {
                 const section = document.getElementById(`portal-tab-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
                 if (t === tabName) {
@@ -1492,6 +1704,7 @@
             if (tabName === 'hours') renderHoursTracker();
             if (tabName === 'video') populateStudioAppointmentDropdown();
             if (tabName === 'emails') renderEmailsCenter();
+            if (tabName === 'users') loadUsersProfilePage();
             if (window.lucide) lucide.createIcons();
         }
 
@@ -2043,10 +2256,18 @@
 
         async function openAppointmentModal(defaultDate = '', editId = '') {
             try {
-                const staffResponse = await fetch('/api/reminder-recipients', { cache: 'no-store' });
-                const staffData = await staffResponse.json();
+                const [staffResponse, availabilityResponse] = await Promise.all([
+                    fetch('/api/reminder-recipients', { cache: 'no-store' }),
+                    fetch('/api/availability', { cache: 'no-store' })
+                ]);
+                const [staffData, availabilityData] = await Promise.all([
+                    staffResponse.json(),
+                    availabilityResponse.json()
+                ]);
                 if (!staffResponse.ok) throw new Error(staffData.error || 'Could not load hosting staff accounts.');
+                if (!availabilityResponse.ok) throw new Error(availabilityData.error || 'Could not load staff availability.');
                 appointmentStaffUsers = staffData.recipients || [];
+                staffSchedules = availabilityData.schedules || [];
                 if (appointmentStaffUsers.length === 0) throw new Error('Create an active portal user with an email before scheduling appointments.');
             } catch (error) {
                 showPortalToast(error.message || 'Could not load hosting staff accounts.');
@@ -2058,6 +2279,7 @@
             const form = document.getElementById('appointment-form');
             const hostSelect = document.getElementById('appt-host-staff');
             form.reset();
+            currentEditingAppointmentId = editId;
             hostSelect.innerHTML = appointmentStaffUsers.map((staff) =>
                 `<option value="${escapeHtml(staff.id)}">${escapeHtml(staff.displayName)} (${escapeHtml(staff.email)})</option>`
             ).join('');
@@ -2070,7 +2292,6 @@
                     document.getElementById('appt-client').value = appt.clientName;
                     document.getElementById('appt-email').value = appt.clientEmail || '';
                     document.getElementById('appt-date').value = appt.date;
-                    document.getElementById('appt-time').value = appt.time;
                     document.getElementById('appt-duration').value = appt.duration;
                     document.getElementById('appt-service').value = appt.service;
                     document.getElementById('appt-room').value = appt.roomCode;
@@ -2091,8 +2312,86 @@
                 document.getElementById('appt-send-reminder-check').checked = true;
             }
 
+            await updateAppointmentAvailableTimes(editId ? appointments.find((item) => item.id === editId)?.time : '');
             modal.classList.remove('hidden');
         }
+
+        function isValidEasternLocalTime(date, time) {
+            const dateMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            const timeMatch = time.match(/^(\d{2}):(\d{2})$/);
+            if (!dateMatch || !timeMatch) return false;
+            const [year, month, day] = dateMatch.slice(1).map(Number);
+            const [hour, minute] = timeMatch.slice(1).map(Number);
+            const targetUtc = Date.UTC(year, month - 1, day, hour, minute);
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hourCycle: 'h23'
+            });
+            let candidate = targetUtc;
+            for (let attempt = 0; attempt < 4; attempt++) {
+                const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+                    .filter((part) => part.type !== 'literal')
+                    .map((part) => [part.type, Number(part.value)]));
+                const displayedUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+                const adjusted = candidate + targetUtc - displayedUtc;
+                if (adjusted === candidate) break;
+                candidate = adjusted;
+            }
+            const verified = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+                .filter((part) => part.type !== 'literal')
+                .map((part) => [part.type, Number(part.value)]));
+            return verified.year === year && verified.month === month && verified.day === day &&
+                verified.hour === hour && verified.minute === minute;
+        }
+
+        function updateAppointmentAvailableTimes(preferredTime = '') {
+            const hostId = document.getElementById('appt-host-staff').value;
+            const date = document.getElementById('appt-date').value;
+            const duration = Number(document.getElementById('appt-duration').value) || 50;
+            const schedule = staffSchedules.find((item) => item.userId === hostId);
+            const exception = schedule?.exceptions?.find((item) => item.date === date);
+            const weekday = date ? String(new Date(`${date}T12:00:00Z`).getUTCDay()) : '';
+            const intervals = exception ? exception.intervals : (schedule?.weekdays?.[weekday] || []);
+            const starts = new Set();
+            const toMinutes = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+            for (const interval of intervals) {
+                const end = toMinutes(interval.end);
+                for (let start = Math.ceil(toMinutes(interval.start) / 15) * 15; start + duration <= end; start += 15) {
+                    const time = `${String(Math.floor(start / 60)).padStart(2, '0')}:${String(start % 60).padStart(2, '0')}`;
+                    const endMinute = start + duration;
+                    const endTime = `${String(Math.floor(endMinute / 60)).padStart(2, '0')}:${String(endMinute % 60).padStart(2, '0')}`;
+                    if (!isValidEasternLocalTime(date, time) || !isValidEasternLocalTime(date, endTime)) continue;
+                    const conflict = appointments.some((appointment) => {
+                        if (appointment.id === currentEditingAppointmentId || appointment.hostUserId !== hostId ||
+                            appointment.date !== date || appointment.status === 'Reschedule Requested' ||
+                            !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time || '')) return false;
+                        const otherStart = toMinutes(appointment.time);
+                        return start < otherStart + Number(appointment.duration || 50) && otherStart < start + duration;
+                    });
+                    if (!conflict) starts.add(time);
+                }
+            }
+            if (preferredTime && !starts.has(preferredTime)) starts.add(preferredTime);
+            const select = document.getElementById('appt-time');
+            const times = [...starts].sort();
+            select.innerHTML = `<option value="">${times.length ? 'Select an available time' : 'No available times'}</option>` +
+                times.map((time) => `<option value="${time}">${time}${time === preferredTime && !intervals.length ? ' (existing appointment)' : ''}</option>`).join('');
+            if (preferredTime && times.includes(preferredTime)) select.value = preferredTime;
+            const help = document.getElementById('appt-availability-help');
+            help.textContent = times.length
+                ? `${times.length} start time${times.length === 1 ? '' : 's'} available in Eastern Time.`
+                : 'No available times for this staff member and date. Set weekly hours or an exception in Users & Profile.';
+        }
+
+        document.getElementById('appt-host-staff').addEventListener('change', () => updateAppointmentAvailableTimes());
+        document.getElementById('appt-date').addEventListener('change', () => updateAppointmentAvailableTimes());
+        document.getElementById('appt-duration').addEventListener('change', () => updateAppointmentAvailableTimes());
 
         function closeAppointmentModal() {
             document.getElementById('appointment-modal').classList.add('hidden');
