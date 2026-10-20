@@ -674,6 +674,11 @@
                     </div>
                 </div>
 
+                <div>
+                    <label for="appt-host-staff" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Hosting Staff Member *</label>
+                    <select id="appt-host-staff" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm"></select>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Service Type</label>
@@ -707,6 +712,11 @@
                 <label class="flex items-center gap-2.5 bg-sage-50 border border-sage-200 p-3 rounded-xl cursor-pointer">
                     <input type="checkbox" id="appt-send-email-check" checked class="w-4 h-4 text-sage-600 rounded">
                     <span class="text-xs font-medium text-sage-900">Automatically send Appointment Confirmation Email to client upon saving</span>
+                </label>
+
+                <label class="flex items-start gap-2.5 bg-sand-50 border border-sand-200 p-3 rounded-xl cursor-pointer">
+                    <input type="checkbox" id="appt-send-reminder-check" checked class="w-4 h-4 mt-0.5 text-sage-600 rounded">
+                    <span class="text-xs font-medium text-sage-900">Send a reminder email to the client and hosting staff 30 minutes before the appointment</span>
                 </label>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
@@ -954,6 +964,7 @@
         let currentPortalUser = null;
         let pendingMfaChallenge = null;
         let portalUsers = [];
+        let appointmentStaffUsers = [];
         let appointments = [];
         let hoursLogs = [];
         let emailLogs = [];
@@ -1533,18 +1544,23 @@
         }
 
         async function persistAppointment(appointment) {
-            const idx = appointments.findIndex((a) => a.id === appointment.id);
-            if (idx >= 0) appointments[idx] = appointment;
-            else appointments.push(appointment);
-            localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
-
+            const response = await fetch('/api/appointments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointment })
+            });
+            let result = {};
             try {
-                await fetch('/api/appointments', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ appointment })
-                });
-            } catch {}
+                result = await response.json();
+            } catch {
+                if (response.ok) throw new Error('Appointment save returned an invalid response.');
+            }
+            if (!response.ok) throw new Error(result.error || `Could not save appointment (${response.status}).`);
+            const savedAppointment = result.appointments?.find((item) => item.id === appointment.id) || appointment;
+            const idx = appointments.findIndex((item) => item.id === appointment.id);
+            if (idx >= 0) appointments[idx] = savedAppointment;
+            else appointments.push(savedAppointment);
+            localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
         }
 
         async function removeAppointmentById(id) {
@@ -1598,7 +1614,12 @@
             }
 
             appt.status = appt.status === "Confirmed" ? "Confirmed" : "Awaiting Confirmation";
-            await persistAppointment(appt);
+            try {
+                await persistAppointment(appt);
+            } catch (error) {
+                showPortalToast(error.message || 'Could not save the appointment.');
+                return;
+            }
             renderCalendar();
             renderAppointmentsList();
 
@@ -2020,11 +2041,26 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        function openAppointmentModal(defaultDate = '', editId = '') {
+        async function openAppointmentModal(defaultDate = '', editId = '') {
+            try {
+                const staffResponse = await fetch('/api/reminder-recipients', { cache: 'no-store' });
+                const staffData = await staffResponse.json();
+                if (!staffResponse.ok) throw new Error(staffData.error || 'Could not load hosting staff accounts.');
+                appointmentStaffUsers = staffData.recipients || [];
+                if (appointmentStaffUsers.length === 0) throw new Error('Create an active portal user with an email before scheduling appointments.');
+            } catch (error) {
+                showPortalToast(error.message || 'Could not load hosting staff accounts.');
+                return;
+            }
+
             const modal = document.getElementById('appointment-modal');
             const title = document.getElementById('appt-modal-title');
             const form = document.getElementById('appointment-form');
+            const hostSelect = document.getElementById('appt-host-staff');
             form.reset();
+            hostSelect.innerHTML = appointmentStaffUsers.map((staff) =>
+                `<option value="${escapeHtml(staff.id)}">${escapeHtml(staff.displayName)} (${escapeHtml(staff.email)})</option>`
+            ).join('');
 
             if (editId) {
                 const appt = appointments.find((a) => a.id === editId);
@@ -2041,6 +2077,8 @@
                     document.getElementById('appt-status').value = appt.status || 'Pending';
                     document.getElementById('appt-notes').value = appt.notes || '';
                     document.getElementById('appt-send-email-check').checked = false;
+                    document.getElementById('appt-host-staff').value = appt.hostUserId || currentPortalUser.id;
+                    document.getElementById('appt-send-reminder-check').checked = appt.reminderEnabled !== false;
                 }
             } else {
                 title.textContent = "Schedule New Appointment";
@@ -2049,6 +2087,8 @@
                 document.getElementById('appt-room').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
                 document.getElementById('appt-status').value = 'Pending';
                 document.getElementById('appt-send-email-check').checked = true;
+                document.getElementById('appt-host-staff').value = currentPortalUser.id;
+                document.getElementById('appt-send-reminder-check').checked = true;
             }
 
             modal.classList.remove('hidden');
@@ -2062,6 +2102,7 @@
             e.preventDefault();
             const id = document.getElementById('appt-id').value || crypto.randomUUID();
             const shouldEmail = document.getElementById('appt-send-email-check').checked;
+            const shouldSendReminder = document.getElementById('appt-send-reminder-check').checked;
             const statusVal = document.getElementById('appt-status').value || 'Pending';
 
             const appointment = {
@@ -2070,14 +2111,22 @@
                 clientEmail: document.getElementById('appt-email').value.trim(),
                 date: document.getElementById('appt-date').value,
                 time: document.getElementById('appt-time').value,
+                timeZone: 'America/New_York',
                 duration: parseInt(document.getElementById('appt-duration').value, 10) || 50,
                 service: document.getElementById('appt-service').value,
                 roomCode: document.getElementById('appt-room').value.trim().toUpperCase(),
+                hostUserId: document.getElementById('appt-host-staff').value,
+                reminderEnabled: shouldSendReminder,
                 status: shouldEmail && statusVal === 'Pending' ? 'Awaiting Confirmation' : statusVal,
                 notes: document.getElementById('appt-notes').value.trim()
             };
 
-            await persistAppointment(appointment);
+            try {
+                await persistAppointment(appointment);
+            } catch (error) {
+                showPortalToast(error.message || 'Could not save the appointment.');
+                return;
+            }
             closeAppointmentModal();
             renderCalendar();
             renderAppointmentsList();
@@ -2204,19 +2253,26 @@
                         const roomMatch = block.match(/LINDA-\d+/i);
                         const roomCode = roomMatch ? roomMatch[0].toUpperCase() : `LINDA-${Math.floor(100 + Math.random() * 900)}`;
 
-                        await persistAppointment({
-                            id: crypto.randomUUID(),
-                            clientName: clientName || "Imported Client",
-                            clientEmail: "",
-                            date,
-                            time,
-                            duration,
-                            service: "Individual Psychotherapy",
-                            roomCode,
-                            status: "Confirmed",
-                            notes: "Imported from .ics calendar file"
-                        });
-                        importedCount++;
+                        try {
+                            await persistAppointment({
+                                id: crypto.randomUUID(),
+                                clientName: clientName || "Imported Client",
+                                clientEmail: "",
+                                date,
+                                time,
+                                timeZone: 'America/New_York',
+                                duration,
+                                service: "Individual Psychotherapy",
+                                roomCode,
+                                reminderEnabled: false,
+                                status: "Confirmed",
+                                notes: "Imported from .ics calendar file"
+                            });
+                            importedCount++;
+                        } catch (error) {
+                            showPortalToast(error.message || 'Could not save imported appointment.');
+                            return;
+                        }
                     }
                 }
 

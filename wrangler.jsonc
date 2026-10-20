@@ -28,6 +28,10 @@
 			"remote": true
 		}
 	],
+	// Check enabled appointment reminders once per minute.
+	"triggers": {
+		"crons": ["* * * * *"]
+	},
 	"migrations": [
 		{
 			"tag": "v1",

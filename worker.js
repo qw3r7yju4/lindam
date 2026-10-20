@@ -4,6 +4,7 @@ const AUTH_PASSWORD_ITERATIONS = 100000;
 const AUTH_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const AUTH_MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const AUTH_SESSION_COOKIE = "linda_portal_session";
+const APPOINTMENT_TIME_ZONE = "America/New_York";
 
 export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
@@ -732,6 +733,109 @@ export class ChatRoom extends DurableObject {
       }
     }
 
+    if (url.pathname === "/internal/reminder-recipients" && request.method === "GET") {
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const recipients = users
+        .filter((user) => user.active && isValidEmail(user.email))
+        .map((user) => ({ id: user.id, displayName: user.displayName, email: user.email }));
+      return new Response(JSON.stringify({ recipients }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/reminders/claim" && request.method === "POST") {
+      const body = await request.json();
+      const now = Number(body.now);
+      if (!Number.isFinite(now)) {
+        return new Response(JSON.stringify({ error: "A valid reminder time is required." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const claims = await this.ctx.storage.transaction(async (transaction) => {
+        const appointments = (await transaction.get("appointments")) || [];
+        const users = (await transaction.get("auth:users")) || [];
+        const claimsToSend = [];
+        for (const appointment of appointments) {
+          if (appointment.reminderEnabled === false || appointment.status === "Reschedule Requested" ||
+            appointment.reminderClaim?.expiresAt > now) continue;
+          const startsAt = getAppointmentStartTime(appointment);
+          if (startsAt === null || startsAt <= now || startsAt - 30 * 60 * 1000 > now) continue;
+
+          const host = users.find((user) => user.id === appointment.hostUserId && user.active && isValidEmail(user.email));
+          if (!host || !isValidEmail(appointment.clientEmail)) continue;
+          const state = appointment.reminderState || {};
+          const targets = [];
+          for (const [key, recipient] of [
+            ["client", { email: appointment.clientEmail, name: appointment.clientName }],
+            ["staff", { email: host?.email, name: host?.displayName }],
+          ]) {
+            if (!isValidEmail(recipient.email)) continue;
+            const targetState = state[key] || {};
+            if (targetState.sentAt || targetState.attempts >= 3 ||
+              (targetState.nextAttemptAt && targetState.nextAttemptAt > now)) continue;
+            targets.push({ key, email: recipient.email, name: recipient.name || "" });
+          }
+          if (targets.length === 0) continue;
+
+          const claimToken = crypto.randomUUID();
+          appointment.reminderClaim = { token: claimToken, expiresAt: now + 5 * 60 * 1000 };
+          claimsToSend.push({
+            id: appointment.id,
+            claimToken,
+            clientName: appointment.clientName,
+            date: appointment.date,
+            time: appointment.time,
+            roomCode: appointment.roomCode,
+            targets,
+          });
+          if (claimsToSend.length >= 10) break;
+        }
+        if (claimsToSend.length > 0) await transaction.put("appointments", appointments);
+        return claimsToSend;
+      });
+      return new Response(JSON.stringify({ claims }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/reminders/complete" && request.method === "POST") {
+      const body = await request.json();
+      const { id, claimToken, recipient, sent } = body;
+      if (typeof id !== "string" || typeof claimToken !== "string" ||
+        !["client", "staff"].includes(recipient) || typeof sent !== "boolean") {
+        return new Response(JSON.stringify({ error: "Invalid reminder completion request." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const appointment = appointments.find((item) => item.id === id);
+      if (!appointment || appointment.reminderClaim?.token !== claimToken) {
+        return new Response(JSON.stringify({ error: "Reminder claim expired." }), { status: 409, headers: jsonHeaders });
+      }
+      appointment.reminderState ||= {};
+      const state = appointment.reminderState[recipient] || { attempts: 0 };
+      state.attempts = (state.attempts || 0) + 1;
+      if (sent) {
+        state.sentAt = new Date().toISOString();
+        delete state.nextAttemptAt;
+      } else {
+        state.lastAttemptAt = new Date().toISOString();
+        if (state.attempts < 3) state.nextAttemptAt = Date.now() + 5 * 60 * 1000;
+      }
+      appointment.reminderState[recipient] = state;
+      await this.ctx.storage.put("appointments", appointments);
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/reminders/release" && request.method === "POST") {
+      const body = await request.json();
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const appointment = appointments.find((item) => item.id === body.id);
+      if (appointment?.reminderClaim?.token === body.claimToken) {
+        delete appointment.reminderClaim;
+        await this.ctx.storage.put("appointments", appointments);
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
     // 1. Appointments CRUD
     if (url.pathname === "/internal/appointments") {
       const appointments = (await this.ctx.storage.get("appointments")) || [];
@@ -741,13 +845,34 @@ export class ChatRoom extends DurableObject {
       if (request.method === "POST") {
         const body = await request.json();
         if (Array.isArray(body.appointments)) {
-          await this.ctx.storage.put("appointments", body.appointments);
-          return new Response(JSON.stringify({ appointments: body.appointments }), { headers: jsonHeaders });
+          const users = (await this.ctx.storage.get("auth:users")) || [];
+          const invalidReminder = body.appointments.find((appointment) =>
+            appointment.reminderEnabled === true && !isAppointmentReminderConfigured(appointment, users)
+          );
+          if (invalidReminder) {
+            return new Response(JSON.stringify({
+              error: "Each enabled appointment reminder needs a valid client email, active hosting staff member, and valid appointment time.",
+            }), { status: 400, headers: jsonHeaders });
+          }
+          const mergedAppointments = body.appointments.map((item) => {
+            const existing = appointments.find((appointment) => appointment.id === item.id);
+            return mergeAppointmentReminderState(existing, item);
+          });
+          await this.ctx.storage.put("appointments", mergedAppointments);
+          return new Response(JSON.stringify({ appointments: mergedAppointments }), { headers: jsonHeaders });
         }
         const item = body.appointment;
+        if (item?.reminderEnabled === true) {
+          const users = (await this.ctx.storage.get("auth:users")) || [];
+          if (!isAppointmentReminderConfigured(item, users)) {
+            return new Response(JSON.stringify({
+              error: "An enabled reminder needs a valid client email, active hosting staff member, and valid appointment time.",
+            }), { status: 400, headers: jsonHeaders });
+          }
+        }
         const idx = appointments.findIndex((a) => a.id === item.id);
         if (idx >= 0) {
-          appointments[idx] = item;
+          appointments[idx] = mergeAppointmentReminderState(appointments[idx], item);
         } else {
           appointments.push(item);
         }
@@ -1058,6 +1183,86 @@ function getPortalMfaMethod(user) {
   return "none";
 }
 
+function getAppointmentStartTime(appointment) {
+  const dateMatch = typeof appointment.date === "string"
+    ? appointment.date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    : null;
+  const timeMatch = typeof appointment.time === "string"
+    ? appointment.time.match(/^(\d{2}):(\d{2})$/)
+    : null;
+  const timeZone = appointment.timeZone || APPOINTMENT_TIME_ZONE;
+  if (!dateMatch || !timeMatch) return null;
+  const [year, month, day] = dateMatch.slice(1).map(Number);
+  const [hour, minute] = timeMatch.slice(1).map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
+
+  const targetUtc = Date.UTC(year, month - 1, day, hour, minute);
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    let candidate = targetUtc;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+        .filter((part) => part.type !== "literal")
+        .map((part) => [part.type, Number(part.value)]));
+      const displayedUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      const adjusted = candidate + targetUtc - displayedUtc;
+      if (adjusted === candidate) break;
+      candidate = adjusted;
+    }
+
+    const verified = Object.fromEntries(formatter.formatToParts(new Date(candidate))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]));
+    if (verified.year !== year || verified.month !== month || verified.day !== day ||
+      verified.hour !== hour || verified.minute !== minute) return null;
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+function isAppointmentReminderConfigured(appointment, users) {
+  return isValidEmail(appointment.clientEmail) &&
+    users.some((user) => user.id === appointment.hostUserId && user.active && isValidEmail(user.email)) &&
+    getAppointmentStartTime(appointment) !== null;
+}
+
+function mergeAppointmentReminderState(existing, updated) {
+  if (!existing) return updated;
+  const sameAppointmentTime = existing.date === updated.date &&
+    existing.time === updated.time &&
+    (existing.timeZone || APPOINTMENT_TIME_ZONE) === (updated.timeZone || APPOINTMENT_TIME_ZONE);
+  const sameReminderSetting = (existing.reminderEnabled !== false) === (updated.reminderEnabled !== false);
+  if (!sameAppointmentTime || !sameReminderSetting || updated.reminderEnabled === false) {
+    delete updated.reminderState;
+    delete updated.reminderClaim;
+    return updated;
+  }
+
+  const state = { ...(existing.reminderState || {}) };
+  if (existing.clientEmail !== updated.clientEmail) delete state.client;
+  if (existing.hostUserId !== updated.hostUserId) delete state.staff;
+  if (Object.keys(state).length > 0) updated.reminderState = state;
+  else delete updated.reminderState;
+
+  if (existing.clientEmail === updated.clientEmail && existing.hostUserId === updated.hostUserId) {
+    if (existing.reminderClaim) updated.reminderClaim = existing.reminderClaim;
+    else delete updated.reminderClaim;
+  } else {
+    delete updated.reminderClaim;
+  }
+  return updated;
+}
+
 function publicPortalUser(user) {
   const mfaMethod = getPortalMfaMethod(user);
   return {
@@ -1097,6 +1302,93 @@ async function isAuthorized(request, env) {
 function getAdminStoreStub(env) {
   const adminStoreId = env.CHAT_ROOM.idFromName("__LINDA_ADMIN_PORTAL_STORE__");
   return env.CHAT_ROOM.get(adminStoreId);
+}
+
+async function processAppointmentReminders(env) {
+  if (!env.EMAIL || !env.SENDER_EMAIL) {
+    console.error("Appointment reminders are enabled but the EMAIL binding or SENDER_EMAIL is unavailable.");
+    return;
+  }
+
+  const stub = getAdminStoreStub(env);
+  const jsonHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+  const claimResponse = await stub.fetch(new Request("https://internal/internal/reminders/claim", {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ now: Date.now() }),
+  }));
+  if (!claimResponse.ok) throw new Error(`Could not claim appointment reminders (${claimResponse.status}).`);
+  const { claims } = await claimResponse.json();
+
+  for (const claim of claims) {
+    try {
+      for (const target of claim.targets) {
+        let sendError = null;
+        const isStaff = target.key === "staff";
+        const body = isStaff
+          ? `Reminder: ${claim.clientName}'s appointment begins in 30 minutes.\nDate: ${claim.date}\nTime: ${claim.time} Eastern Time\nRoom: ${claim.roomCode}`
+          : `This is a reminder that your appointment with Linda Milewski, LCSW begins in 30 minutes.\nDate: ${claim.date}\nTime: ${claim.time} Eastern Time`;
+        try {
+          await env.EMAIL.send({
+            from: env.SENDER_EMAIL,
+            to: target.email,
+            subject: "Appointment reminder: starts in 30 minutes",
+            text: body,
+          });
+        } catch (error) {
+          sendError = error;
+          console.error(`Appointment reminder delivery failed for ${target.key}:`, error);
+        }
+
+        const completionResponse = await stub.fetch(new Request("https://internal/internal/reminders/complete", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({
+            id: claim.id,
+            claimToken: claim.claimToken,
+            recipient: target.key,
+            sent: sendError === null,
+          }),
+        }));
+        if (!completionResponse.ok) {
+          console.error(`Could not record appointment reminder result (${completionResponse.status}).`);
+          continue;
+        }
+
+        if (!sendError) {
+          const logResponse = await stub.fetch(new Request("https://internal/internal/emails", {
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({
+              email: {
+                id: crypto.randomUUID(),
+                direction: "outbound",
+                timestamp: new Date().toISOString(),
+                from: env.SENDER_EMAIL,
+                to: target.email,
+                subject: "Appointment reminder: starts in 30 minutes",
+                body,
+                deliveryStatus: "Delivered via Cloudflare Email Service",
+                category: "appointment-reminder",
+              },
+            }),
+          }));
+          if (!logResponse.ok) {
+            console.error(`Could not add appointment reminder to the portal mail log (${logResponse.status}).`);
+          }
+        }
+      }
+    } finally {
+      const releaseResponse = await stub.fetch(new Request("https://internal/internal/reminders/release", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ id: claim.id, claimToken: claim.claimToken }),
+      }));
+      if (!releaseResponse.ok) {
+        console.error(`Could not release appointment reminder claim (${releaseResponse.status}).`);
+      }
+    }
+  }
 }
 
 function decodeQuotedPrintable(text) {
@@ -1526,6 +1818,17 @@ export default {
       }));
     }
 
+    if (url.pathname === "/api/reminder-recipients" && request.method === "GET") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/reminder-recipients", {
+        method: "GET",
+        headers: jsonHeaders,
+      }));
+    }
+
     // 2. One-Click Client Appointment Confirmation Link (GET /api/confirm-appointment)
     if (url.pathname === "/api/confirm-appointment" && request.method === "GET") {
       const appointmentId = url.searchParams.get("id") || "";
@@ -1842,6 +2145,12 @@ export default {
     }
 
     return new Response("Not found", { status: 404 });
+  },
+
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(processAppointmentReminders(env).catch((error) => {
+      console.error("Scheduled appointment reminder check failed:", error);
+    }));
   },
 
   // ===========================================================================
