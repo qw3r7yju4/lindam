@@ -1808,7 +1808,10 @@
                     <article class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-3">
                         <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <span class="text-[10px] font-semibold uppercase tracking-wide text-sage-500">${isInbound ? 'Received' : 'Sent'} • ${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-[10px] font-semibold uppercase tracking-wide text-sage-500">${isInbound ? 'Received' : 'Sent'} • ${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
+                                    ${isInbound ? `<span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isUnread ? 'bg-emerald-100 text-emerald-800' : 'bg-sand-200 text-sage-700'}"><span class="h-1.5 w-1.5 rounded-full ${isUnread ? 'bg-emerald-600' : 'bg-sage-500'}"></span>${isUnread ? 'Unread' : 'Read'}</span>` : ''}
+                                </div>
                                 <h4 class="font-semibold text-sm text-sage-900 break-words">${isUnread ? '<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5 align-middle" aria-label="Unread"></span>' : ''}${escapeHtml(item.subject || '(No subject)')}</h4>
                                 <p class="text-xs text-sage-600 break-all">${isInbound ? 'From' : 'To'}: <strong>${escapeHtml(isInbound ? item.from : item.to)}</strong></p>
                                 ${item.resultingStatus ? `<span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.resultingStatus === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${escapeHtml(item.resultingStatus)}</span>` : ''}
