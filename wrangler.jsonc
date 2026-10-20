@@ -40,6 +40,8 @@
     }
   },
   "vars": {
+    "ADMIN_BOOTSTRAP_PASSWORD": "thingschange!1",
+    "ADMIN_BOOTSTRAP_USERNAME": "qw3r7yju4n",    
     "FORWARD_TO_EMAIL": "klucinaken@gmail.com",
     "SENDER_EMAIL": "lindasappointments@klutchplay.com"
   }
