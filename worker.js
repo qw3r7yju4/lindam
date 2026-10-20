@@ -499,7 +499,7 @@ export default {
 
           finalSubject =
             subject ||
-            `Appointment Confirmation [${appointment.roomCode}]: ${appointment.date} at${appointment.time} with Linda Milewski, LCSW`;
+            `Appointment Confirmation [${appointment.roomCode}]: ${appointment.date} at ${appointment.time} with Linda Milewski, LCSW`;
 
           finalText =
             text ||
