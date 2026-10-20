@@ -2,11 +2,13 @@ import { DurableObject } from "cloudflare:workers";
 
 const AUTH_PASSWORD_ITERATIONS = 100000;
 const AUTH_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const AUTH_MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const AUTH_SESSION_COOKIE = "linda_portal_session";
 
 export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
+    this.activeMfaChallenges = new Set();
     this.ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair("ping", "pong"),
     );
@@ -77,7 +79,12 @@ export class ChatRoom extends DurableObject {
       return null;
     }
     const users = (await this.ctx.storage.get("auth:users")) || [];
-    return users.find((user) => user.id === session.userId && user.active) || null;
+    const user = users.find((item) => item.id === session.userId && item.active);
+    if (!user || !isValidEmail(user.email)) {
+      await this.ctx.storage.delete(key);
+      return null;
+    }
+    return user;
   }
 
   async handleInternalStorage(request, url) {
@@ -123,10 +130,17 @@ export class ChatRoom extends DurableObject {
         }
 
         const salt = crypto.getRandomValues(new Uint8Array(16));
+        const bootstrapEmail = typeof body.bootstrapEmail === "string"
+          ? body.bootstrapEmail.trim().toLowerCase()
+          : "";
+        const suppliedBootstrapEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+        const adminEmail = isValidEmail(bootstrapEmail) ? bootstrapEmail : suppliedBootstrapEmail;
         const admin = {
           id: crypto.randomUUID(),
           username: bootstrapUsername,
           displayName: "Portal Administrator",
+          email: adminEmail,
+          mfaMethod: "none",
           role: "admin",
           active: true,
           createdAt: new Date().toISOString(),
@@ -153,8 +167,142 @@ export class ChatRoom extends DurableObject {
         });
       }
 
-      if (bootstrappedUser) await this.ctx.storage.put("auth:users", users);
-      await this.ctx.storage.delete(rateLimitKey);
+      const suppliedEmail = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+      if (!isValidEmail(user.email) && !isValidEmail(suppliedEmail)) {
+        return new Response(JSON.stringify({ error: "A valid email address is required for every portal account. Enter your email to continue." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      if (bootstrappedUser) {
+        user.email = user.email || suppliedEmail;
+        await this.ctx.storage.put("auth:users", users);
+      }
+
+      const mfaMethod = getPortalMfaMethod(user);
+      if (mfaMethod === "none") {
+        if (!user.email) {
+          user.email = suppliedEmail;
+          await this.ctx.storage.put("auth:users", users);
+        }
+        await this.ctx.storage.delete(rateLimitKey);
+        const sessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+        const sessionHash = await hashSessionToken(sessionToken);
+        const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
+        await this.ctx.storage.put(`auth:session:${sessionHash}`, { userId: user.id, expiresAt });
+        return new Response(JSON.stringify({
+          sessionToken,
+          expiresAt,
+          user: publicPortalUser(user),
+        }), { headers: jsonHeaders });
+      }
+
+      rateLimit.count += 1;
+      await this.ctx.storage.put(rateLimitKey, rateLimit);
+      if (mfaMethod === "authenticator" && !user.email) {
+        user.email = suppliedEmail;
+        await this.ctx.storage.put("auth:users", users);
+      }
+      const challengeId = crypto.randomUUID();
+      const challengeCode = mfaMethod === "email"
+        ? String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0")
+        : "";
+      const challenge = {
+        userId: user.id,
+        method: mfaMethod,
+        expiresAt: Date.now() + AUTH_MFA_CHALLENGE_TTL_MS,
+        attempts: 0,
+        rateLimitKey,
+      };
+      const challengeEmail = isValidEmail(user.email) ? user.email : suppliedEmail;
+      if (challengeCode) {
+        challenge.codeHash = await hashMfaCode(challengeId, challengeCode);
+      }
+      if (mfaMethod === "email" && !isValidEmail(user.email)) {
+        challenge.pendingEmail = suppliedEmail;
+      }
+      await this.ctx.storage.put(`auth:challenge:${challengeId}`, challenge);
+      return new Response(JSON.stringify({
+        challengeId,
+        challengeCode,
+        method: mfaMethod,
+        maskedEmail: mfaMethod === "email" ? maskEmail(challengeEmail) : null,
+        email: mfaMethod === "email" ? challengeEmail : null,
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/cancel-mfa" && request.method === "POST") {
+      const { challengeId } = await request.json();
+      if (typeof challengeId === "string") await this.ctx.storage.delete(`auth:challenge:${challengeId}`);
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/verify-mfa" && request.method === "POST") {
+      const body = await request.json();
+      const challengeId = typeof body.challengeId === "string" ? body.challengeId : "";
+      const code = typeof body.code === "string" ? body.code.trim() : "";
+      if (!/^[0-9a-f-]{36}$/i.test(challengeId) || code.length > 12) {
+        return new Response(JSON.stringify({ error: "Invalid or expired verification code." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const challengeKey = `auth:challenge:${challengeId}`;
+      const challenge = await this.ctx.storage.get(challengeKey);
+      if (!challenge || challenge.expiresAt <= Date.now() || challenge.attempts >= 5) {
+        if (challenge) await this.ctx.storage.delete(challengeKey);
+        return new Response(JSON.stringify({ error: "This verification code expired. Sign in again to request a new one." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      if (this.activeMfaChallenges.has(challengeId)) {
+        return new Response(JSON.stringify({ error: "Code verification is already in progress." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      this.activeMfaChallenges.add(challengeId);
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const user = users.find((item) => item.id === challenge.userId && item.active);
+      let valid = false;
+      let verifiedTotpStep = null;
+      if (user && challenge.method === "email" && /^\d{6}$/.test(code)) {
+        valid = constantTimeEqual(await hashMfaCode(challengeId, code), challenge.codeHash);
+      } else if (user && challenge.method === "authenticator" && user.totpSecret) {
+        verifiedTotpStep = await verifyTotp(user.totpSecret, code);
+        valid = verifiedTotpStep !== null && verifiedTotpStep > (user.totpLastUsedStep ?? -1);
+      }
+      if (!valid || !user) {
+        challenge.attempts += 1;
+        const throttle = challenge.rateLimitKey
+          ? await this.ctx.storage.get(challenge.rateLimitKey)
+          : null;
+        if (throttle) {
+          if (Date.now() - throttle.windowStartedAt > 15 * 60 * 1000) {
+            throttle.count = 0;
+            throttle.windowStartedAt = Date.now();
+          }
+          throttle.count += 1;
+          await this.ctx.storage.put(challenge.rateLimitKey, throttle);
+        }
+        if (challenge.attempts >= 5 || throttle?.count >= 10) await this.ctx.storage.delete(challengeKey);
+        else await this.ctx.storage.put(challengeKey, challenge);
+        this.activeMfaChallenges.delete(challengeId);
+        return new Response(JSON.stringify({ error: "Invalid verification code." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+
+      if (challenge.pendingEmail) {
+        user.email = challenge.pendingEmail;
+      }
+      if (verifiedTotpStep !== null) user.totpLastUsedStep = verifiedTotpStep;
+      if (challenge.pendingEmail || verifiedTotpStep !== null) await this.ctx.storage.put("auth:users", users);
+      this.activeMfaChallenges.delete(challengeId);
+      await this.ctx.storage.delete(challengeKey);
+      if (challenge.rateLimitKey) await this.ctx.storage.delete(challenge.rateLimitKey);
       const sessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
       const sessionHash = await hashSessionToken(sessionToken);
       const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
@@ -167,6 +315,152 @@ export class ChatRoom extends DurableObject {
         expiresAt,
         user: publicPortalUser(user),
       }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/setup" && request.method === "POST") {
+      const { sessionToken } = await request.json();
+      const user = await this.getSessionUser(sessionToken);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const secret = base32Encode(crypto.getRandomValues(new Uint8Array(20)));
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const target = users.find((item) => item.id === user.id);
+      target.pendingTotpSecret = secret;
+      target.pendingTotpExpiresAt = Date.now() + 10 * 60 * 1000;
+      target.pendingTotpAttempts = 0;
+      await this.ctx.storage.put("auth:users", users);
+      const issuer = "Linda Milewski Portal";
+      const label = `${issuer}:${user.username}`;
+      const otpauthUri = `otpauth://totp/${encodeURIComponent(label)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+      return new Response(JSON.stringify({ secret, otpauthUri }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/verify-setup" && request.method === "POST") {
+      const { sessionToken, code } = await request.json();
+      const user = await this.getSessionUser(sessionToken);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const target = users.find((item) => item.id === user.id);
+      const verifiedStep = target?.pendingTotpSecret
+        ? await verifyTotp(target.pendingTotpSecret, typeof code === "string" ? code.trim() : "")
+        : null;
+      if (!target?.pendingTotpSecret || target.pendingTotpExpiresAt <= Date.now() ||
+        target.pendingTotpAttempts >= 5 || verifiedStep === null) {
+        if (target?.pendingTotpSecret && verifiedStep === null) {
+          target.pendingTotpAttempts += 1;
+          if (target.pendingTotpAttempts >= 5) {
+            delete target.pendingTotpSecret;
+            delete target.pendingTotpExpiresAt;
+            delete target.pendingTotpAttempts;
+          }
+          await this.ctx.storage.put("auth:users", users);
+        }
+        return new Response(JSON.stringify({ error: "Invalid code or authenticator setup expired. Start setup again." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      target.totpSecret = target.pendingTotpSecret;
+      target.mfaMethod = "authenticator";
+      target.totpLastUsedStep = verifiedStep;
+      delete target.pendingTotpSecret;
+      delete target.pendingTotpExpiresAt;
+      delete target.pendingTotpAttempts;
+      await this.ctx.storage.put("auth:users", users);
+      return new Response(JSON.stringify({ ok: true, user: publicPortalUser(target) }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/email/start" && request.method === "POST") {
+      const body = await request.json();
+      const user = await this.getSessionUser(body.sessionToken);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : user.email;
+      if (!isValidEmail(email)) {
+        return new Response(JSON.stringify({ error: "Enter a valid email address." }), { status: 400, headers: jsonHeaders });
+      }
+      const key = `auth:mfa-email:${user.id}`;
+      const existing = await this.ctx.storage.get(key);
+      if (existing?.resendAfter > Date.now()) {
+        return new Response(JSON.stringify({ error: "Wait before requesting another email code." }), {
+          status: 429,
+          headers: jsonHeaders,
+        });
+      }
+      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
+      await this.ctx.storage.put(key, {
+        email,
+        codeHash: await hashMfaCode(user.id, code),
+        expiresAt: Date.now() + AUTH_MFA_CHALLENGE_TTL_MS,
+        resendAfter: Date.now() + 60 * 1000,
+        attempts: 0,
+      });
+      return new Response(JSON.stringify({ code, email, maskedEmail: maskEmail(email) }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/email/cancel" && request.method === "POST") {
+      const { sessionToken } = await request.json();
+      const user = await this.getSessionUser(sessionToken);
+      if (user) await this.ctx.storage.delete(`auth:mfa-email:${user.id}`);
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/email/verify" && request.method === "POST") {
+      const body = await request.json();
+      const user = await this.getSessionUser(body.sessionToken);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const key = `auth:mfa-email:${user.id}`;
+      const pending = await this.ctx.storage.get(key);
+      const code = typeof body.code === "string" ? body.code.trim() : "";
+      if (!pending || pending.expiresAt <= Date.now() || pending.attempts >= 5) {
+        if (pending) await this.ctx.storage.delete(key);
+        return new Response(JSON.stringify({ error: "Email verification expired. Request a new code." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      if (!/^\d{6}$/.test(code) || !constantTimeEqual(await hashMfaCode(user.id, code), pending.codeHash)) {
+        pending.attempts += 1;
+        if (pending.attempts >= 5) await this.ctx.storage.delete(key);
+        else await this.ctx.storage.put(key, pending);
+        return new Response(JSON.stringify({ error: "Invalid email verification code." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const target = users.find((item) => item.id === user.id && item.active);
+      if (!target) return new Response(JSON.stringify({ error: "Account not found." }), { status: 404, headers: jsonHeaders });
+      target.email = pending.email;
+      target.mfaMethod = "email";
+      await this.ctx.storage.put("auth:users", users);
+      await this.ctx.storage.delete(key);
+      return new Response(JSON.stringify({ ok: true, user: publicPortalUser(target) }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/mfa/disable" && request.method === "POST") {
+      const body = await request.json();
+      const actor = await this.getSessionUser(body.sessionToken);
+      if (!actor) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      const password = typeof body.password === "string" ? body.password : "";
+      const passwordHash = await hashPortalPassword(password.slice(0, 256), hexToBytes(actor.salt), actor.passwordIterations);
+      if (password.length > 256 || !constantTimeEqual(passwordHash, actor.passwordHash)) {
+        return new Response(JSON.stringify({ error: "Current password is incorrect." }), { status: 400, headers: jsonHeaders });
+      }
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const target = users.find((item) => item.id === actor.id && item.active);
+      target.mfaMethod = "none";
+      delete target.pendingTotpSecret;
+      delete target.pendingTotpExpiresAt;
+      delete target.pendingTotpAttempts;
+      await this.ctx.storage.put("auth:users", users);
+      await this.ctx.storage.delete(`auth:mfa-email:${target.id}`);
+      const currentSessionHash = await hashSessionToken(body.sessionToken);
+      const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+      for (const [key, session] of sessions) {
+        if (session.userId === target.id && key !== `auth:session:${currentSessionHash}`) {
+          await this.ctx.storage.delete(key);
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, user: publicPortalUser(target) }), { headers: jsonHeaders });
     }
 
     if (url.pathname === "/internal/auth/session" && request.method === "POST") {
@@ -214,6 +508,10 @@ export class ChatRoom extends DurableObject {
       for (const [key, session] of sessions) {
         if (session.userId === user.id) await this.ctx.storage.delete(key);
       }
+      const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+      for (const [key, challenge] of challenges) {
+        if (challenge.userId === user.id) await this.ctx.storage.delete(key);
+      }
       const newSessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
       const sessionHash = await hashSessionToken(newSessionToken);
       const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
@@ -256,11 +554,12 @@ export class ChatRoom extends DurableObject {
         const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
         const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
         const password = typeof body.password === "string" ? body.password : "";
+        const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
         const role = body.role;
         if (!/^[a-z0-9._-]{3,32}$/.test(username) || !displayName || displayName.length > 80 ||
-          password.length < 12 || password.length > 256 || !["admin", "staff"].includes(role)) {
+          !isValidEmail(email) || password.length < 12 || password.length > 256 || !["admin", "staff"].includes(role)) {
           return new Response(JSON.stringify({
-            error: "Enter a 3-32 character username, display name, password of at least 12 characters, and valid role.",
+            error: "Enter a valid email, 3-32 character username, display name, password of at least 12 characters, and valid role.",
           }), { status: 400, headers: jsonHeaders });
         }
         if (users.some((item) => item.username === username)) {
@@ -280,7 +579,9 @@ export class ChatRoom extends DurableObject {
           id: crypto.randomUUID(),
           username,
           displayName,
+          email,
           role,
+          mfaMethod: "none",
           active: true,
           createdAt: new Date().toISOString(),
           salt: bytesToHex(salt),
@@ -295,8 +596,84 @@ export class ChatRoom extends DurableObject {
       if (request.method === "PATCH") {
         const id = url.searchParams.get("id");
         const target = users.find((item) => item.id === id && item.active);
-        if (!target || target.id === actor.id) {
+        if (!target) {
           return new Response(JSON.stringify({ error: "Select another active account to reset." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        if (body.action === "reset-mfa") {
+          const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : target.email;
+          if (!isValidEmail(email)) {
+            return new Response(JSON.stringify({ error: "Enter a valid email address." }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
+          target.email = email;
+          target.mfaMethod = "email";
+          delete target.totpSecret;
+          delete target.totpLastUsedStep;
+          delete target.pendingTotpSecret;
+          delete target.pendingTotpExpiresAt;
+          delete target.pendingTotpAttempts;
+          await this.ctx.storage.put("auth:users", users);
+          const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+          for (const [key, session] of sessions) {
+            if (session.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+          for (const [key, challenge] of challenges) {
+            if (challenge.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+        }
+        if (body.action === "update-email") {
+          const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+          if (!isValidEmail(email)) {
+            return new Response(JSON.stringify({ error: "Enter a valid email address." }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
+          target.email = email;
+          await this.ctx.storage.put("auth:users", users);
+          const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+          for (const [key, session] of sessions) {
+            if (session.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+          for (const [key, challenge] of challenges) {
+            if (challenge.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          await this.ctx.storage.delete(`auth:mfa-email:${target.id}`);
+          return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+        }
+        if (body.action === "disable-mfa") {
+          if (target.id === actor.id) {
+            return new Response(JSON.stringify({ error: "Use Security & MFA to turn off your own MFA." }), {
+              status: 400,
+              headers: jsonHeaders,
+            });
+          }
+          target.mfaMethod = "none";
+          delete target.pendingTotpSecret;
+          delete target.pendingTotpExpiresAt;
+          delete target.pendingTotpAttempts;
+          await this.ctx.storage.put("auth:users", users);
+          const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+          for (const [key, session] of sessions) {
+            if (session.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+          for (const [key, challenge] of challenges) {
+            if (challenge.userId === target.id) await this.ctx.storage.delete(key);
+          }
+          await this.ctx.storage.delete(`auth:mfa-email:${target.id}`);
+          return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+        }
+        if (target.id === actor.id) {
+          return new Response(JSON.stringify({ error: "You cannot reset your own password here." }), {
             status: 400,
             headers: jsonHeaders,
           });
@@ -315,6 +692,10 @@ export class ChatRoom extends DurableObject {
         const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
         for (const [key, session] of sessions) {
           if (session.userId === target.id) await this.ctx.storage.delete(key);
+        }
+        const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+        for (const [key, challenge] of challenges) {
+          if (challenge.userId === target.id) await this.ctx.storage.delete(key);
         }
         return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
       }
@@ -342,6 +723,10 @@ export class ChatRoom extends DurableObject {
         const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
         for (const [key, session] of sessions) {
           if (session.userId === target.id) await this.ctx.storage.delete(key);
+        }
+        const challenges = await this.ctx.storage.list({ prefix: "auth:challenge:" });
+        for (const [key, challenge] of challenges) {
+          if (challenge.userId === target.id) await this.ctx.storage.delete(key);
         }
         return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
       }
@@ -585,6 +970,80 @@ async function hashSessionToken(token) {
   return bytesToHex(new Uint8Array(digest));
 }
 
+async function hashMfaCode(challengeId, code) {
+  return hashPortalPassword(
+    `${challengeId}:${code}`,
+    new TextEncoder().encode(challengeId),
+    AUTH_PASSWORD_ITERATIONS,
+  );
+}
+
+function isValidEmail(email) {
+  return typeof email === "string" && email.length <= 254 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function maskEmail(email) {
+  const [name, domain] = email.split("@");
+  return `${name.slice(0, 1)}${"*".repeat(Math.max(2, name.length - 1))}@${domain}`;
+}
+
+function base32Encode(bytes) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0;
+  let value = 0;
+  let output = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) output += alphabet[(value << (5 - bits)) & 31];
+  return output;
+}
+
+function base32Decode(value) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0;
+  let buffer = 0;
+  const output = [];
+  for (const character of value.toUpperCase().replace(/=+$/g, "")) {
+    const index = alphabet.indexOf(character);
+    if (index < 0) return null;
+    buffer = (buffer << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      output.push((buffer >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(output);
+}
+
+async function verifyTotp(secret, code) {
+  if (typeof code !== "string" || !/^\d{6}$/.test(code)) return null;
+  const keyBytes = base32Decode(secret);
+  if (!keyBytes?.length) return null;
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+  const currentStep = Math.floor(Date.now() / 30000);
+  for (let offset = -1; offset <= 1; offset++) {
+    const counter = new DataView(new ArrayBuffer(8));
+    counter.setBigUint64(0, BigInt(currentStep + offset));
+    const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, counter));
+    const position = digest[digest.length - 1] & 15;
+    const binary = ((digest[position] & 127) << 24) |
+      ((digest[position + 1] & 255) << 16) |
+      ((digest[position + 2] & 255) << 8) |
+      (digest[position + 3] & 255);
+    const expected = String(binary % 1000000).padStart(6, "0");
+    if (constantTimeEqual(code, expected)) return currentStep + offset;
+  }
+  return null;
+}
+
 function constantTimeEqual(left, right) {
   if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
   let difference = 0;
@@ -592,12 +1051,23 @@ function constantTimeEqual(left, right) {
   return difference === 0;
 }
 
+function getPortalMfaMethod(user) {
+  if (user.mfaMethod === "none") return "none";
+  if (user.mfaMethod === "authenticator" && user.totpSecret) return "authenticator";
+  if (user.mfaMethod === "email") return "email";
+  return "none";
+}
+
 function publicPortalUser(user) {
+  const mfaMethod = getPortalMfaMethod(user);
   return {
     id: user.id,
     username: user.username,
     displayName: user.displayName,
+    email: user.email || "",
     role: user.role,
+    mfaMethod,
+    mfaEnabled: mfaMethod !== "none",
     active: user.active,
     createdAt: user.createdAt,
   };
@@ -700,7 +1170,8 @@ export default {
         });
       }
 
-      if (typeof credentials.username !== "string" || typeof credentials.password !== "string") {
+      if (!credentials || typeof credentials !== "object" ||
+        typeof credentials.username !== "string" || typeof credentials.password !== "string") {
         return new Response(JSON.stringify({ error: "Enter both username and password." }), {
           status: 400,
           headers: jsonHeaders,
@@ -715,6 +1186,8 @@ export default {
           body: JSON.stringify({
             username: credentials.username,
             password: credentials.password,
+            email: credentials.email,
+            bootstrapEmail: env.ADMIN_BOOTSTRAP_EMAIL,
             bootstrapUsername: env.ADMIN_BOOTSTRAP_USERNAME,
             bootstrapPassword: env.ADMIN_BOOTSTRAP_PASSWORD,
             clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
@@ -736,16 +1209,55 @@ export default {
             headers: { ...jsonHeaders, "Cache-Control": "no-store" },
           });
         }
-        return new Response(
-          JSON.stringify({ ok: true, user: result.user }),
-          {
+        if (result.sessionToken) {
+          return new Response(JSON.stringify({ ok: true, user: result.user }), {
             headers: {
               ...jsonHeaders,
               "Cache-Control": "no-store",
               "Set-Cookie": `${AUTH_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
             },
-          },
-        );
+          });
+        }
+        if (result.method === "email") {
+          if (!env.EMAIL || !env.SENDER_EMAIL || !result.email || !result.challengeCode) {
+            await stub.fetch(new Request("https://internal/internal/auth/cancel-mfa", {
+              method: "POST",
+              headers: jsonHeaders,
+              body: JSON.stringify({ challengeId: result.challengeId }),
+            }));
+            return new Response(JSON.stringify({ error: "Email verification is not configured. Set the Cloudflare EMAIL binding and SENDER_EMAIL." }), {
+              status: 503,
+              headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+            });
+          }
+          try {
+            await env.EMAIL.send({
+              from: env.SENDER_EMAIL,
+              to: result.email,
+              subject: "Your Clinician Portal sign-in code",
+              text: `Your Clinician Portal verification code is ${result.challengeCode}.\n\nIt expires in 10 minutes. If you did not request this code, you can ignore this email.`,
+            });
+          } catch (error) {
+            await stub.fetch(new Request("https://internal/internal/auth/cancel-mfa", {
+              method: "POST",
+              headers: jsonHeaders,
+              body: JSON.stringify({ challengeId: result.challengeId }),
+            }));
+            console.error("Portal MFA email delivery failed:", error);
+            return new Response(JSON.stringify({ error: "Could not send the sign-in code. Check the Cloudflare Email binding and try again." }), {
+              status: 503,
+              headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+            });
+          }
+        }
+        return new Response(JSON.stringify({
+          ok: true,
+          challengeId: result.challengeId,
+          method: result.method,
+          maskedEmail: result.maskedEmail,
+        }), {
+          headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+        });
       } catch (error) {
         console.error("Portal login request failed:", error);
         return new Response(
@@ -753,6 +1265,164 @@ export default {
           { status: 503, headers: { ...jsonHeaders, "Cache-Control": "no-store" } },
         );
       }
+    }
+
+    if (url.pathname === "/api/verify-mfa" && request.method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      const verifyRes = await stub.fetch(new Request("https://internal/internal/auth/verify-mfa", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify(body),
+      }));
+      const result = await verifyRes.json();
+      if (!verifyRes.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Could not verify the code." }), {
+          status: verifyRes.status,
+          headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, user: result.user }), {
+        headers: {
+          ...jsonHeaders,
+          "Cache-Control": "no-store",
+          "Set-Cookie": `${AUTH_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
+        },
+      });
+    }
+
+    if (url.pathname === "/api/mfa/setup" && request.method === "POST") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/mfa/setup", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ sessionToken: getSessionToken(request) }),
+      }));
+    }
+
+    if (url.pathname === "/api/mfa/verify-setup" && request.method === "POST") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      const body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid authenticator verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/mfa/verify-setup", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+      }));
+    }
+
+    if (url.pathname === "/api/mfa/email/start" && request.method === "POST") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      if (!env.EMAIL || !env.SENDER_EMAIL) {
+        return new Response(JSON.stringify({ error: "Email verification is not configured. Set the Cloudflare EMAIL binding and SENDER_EMAIL." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid email MFA request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid email MFA request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      const response = await stub.fetch(new Request("https://internal/internal/auth/mfa/email/start", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+      }));
+      const result = await response.json();
+      if (!response.ok) {
+        return new Response(JSON.stringify({ error: result.error || "Could not start email MFA." }), {
+          status: response.status,
+          headers: jsonHeaders,
+        });
+      }
+      try {
+        await env.EMAIL.send({
+          from: env.SENDER_EMAIL,
+          to: result.email,
+          subject: "Verify your Clinician Portal email",
+          text: `Your Clinician Portal verification code is ${result.code}.\n\nIt expires in 10 minutes. If you did not request this code, you can ignore this email.`,
+        });
+      } catch (error) {
+        await stub.fetch(new Request("https://internal/internal/auth/mfa/email/cancel", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ sessionToken: getSessionToken(request) }),
+        }));
+        console.error("Portal email MFA enrollment delivery failed:", error);
+        return new Response(JSON.stringify({ error: "Could not send the verification code. Check email configuration and try again." }), {
+          status: 503,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, maskedEmail: result.maskedEmail }), {
+        headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+      });
+    }
+
+    if (url.pathname === "/api/mfa/email/verify" && request.method === "POST") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid email MFA verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid email MFA verification request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/mfa/email/verify", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+      }));
+    }
+
+    if (url.pathname === "/api/mfa/disable" && request.method === "POST") {
+      if (!(await isAuthorized(request, env))) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid MFA settings request." }), { status: 400, headers: jsonHeaders });
+      }
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: "Invalid MFA settings request." }), { status: 400, headers: jsonHeaders });
+      }
+      const stub = getAdminStoreStub(env);
+      return stub.fetch(new Request("https://internal/internal/auth/mfa/disable", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+      }));
     }
 
     if (url.pathname === "/api/session" && request.method === "GET") {

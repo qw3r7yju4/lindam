@@ -19,7 +19,9 @@
 	// Initial administrator credentials are Cloudflare Worker secrets, not source:
 	// npx wrangler secret put ADMIN_BOOTSTRAP_USERNAME
 	// npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
-	// The first successful login stores the account in the existing ChatRoom storage.
+	// Optionally set ADMIN_BOOTSTRAP_EMAIL for account contact details.
+	// npx wrangler secret put ADMIN_BOOTSTRAP_EMAIL
+	// MFA is optional and off by default. Email MFA requires the EMAIL binding and a working SENDER_EMAIL.
 	"send_email": [
 		{
 			"name": "EMAIL",
