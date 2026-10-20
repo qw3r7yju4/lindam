@@ -16,6 +16,12 @@
       }
     ]
   },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",

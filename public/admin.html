@@ -131,7 +131,7 @@
 
         <!-- Top Portal Header -->
         <header class="bg-sage-900 text-sand-50 border-b border-sage-800 sticky top-0 z-40">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-sage-600 text-white flex items-center justify-center">
                         <i data-lucide="sprout" class="w-5 h-5"></i>
@@ -143,24 +143,29 @@
                 </div>
 
                 <!-- Navigation Tabs -->
-                <nav class="flex items-center gap-1 sm:gap-2 bg-sage-800/90 p-1 rounded-xl border border-sage-700">
-                    <button onclick="switchPortalTab('calendar')" id="tab-btn-calendar" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm">
+                <nav class="flex flex-wrap items-center gap-1 sm:gap-1.5 bg-sage-800/90 p-1 rounded-xl border border-sage-700">
+                    <button onclick="switchPortalTab('calendar')" id="tab-btn-calendar" class="portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm">
                         <i data-lucide="calendar" class="w-4 h-4"></i>
                         <span>Calendar &amp; .ics</span>
                     </button>
-                    <button onclick="switchPortalTab('video')" id="tab-btn-video" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                    <button onclick="switchPortalTab('emails')" id="tab-btn-emails" class="portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <span>Email &amp; Confirmations</span>
+                        <span id="inbox-count-badge" class="hidden text-[10px] bg-emerald-500 text-white px-1.5 py-0.2 rounded-full font-bold">0</span>
+                    </button>
+                    <button onclick="switchPortalTab('video')" id="tab-btn-video" class="portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
                         <i data-lucide="video" class="w-4 h-4"></i>
-                        <span>Clinician Video Studio</span>
+                        <span>Video Studio</span>
                         <span id="header-live-dot" class="hidden w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     </button>
-                    <button onclick="switchPortalTab('hours')" id="tab-btn-hours" class="portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
+                    <button onclick="switchPortalTab('hours')" id="tab-btn-hours" class="portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white">
                         <i data-lucide="clock" class="w-4 h-4"></i>
                         <span>Hours Tracker</span>
                     </button>
                 </nav>
 
                 <!-- Right Actions -->
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2.5">
                     <a href="index.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 text-xs text-sage-200 hover:text-white bg-sage-800 px-3 py-2 rounded-xl border border-sage-700 transition">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                         <span>Public Site</span>
@@ -177,15 +182,14 @@
         <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
             <!-- =================================================================
-                 TAB 1: CALENDAR, APPOINTMENTS & .ICS FUNCTIONALITY
+                 TAB 1: CALENDAR, APPOINTMENTS, CONFIRMATIONS & .ICS
                  ================================================================= -->
             <section id="portal-tab-calendar" class="space-y-8">
-                <!-- Top Action Bar -->
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
                     <div>
-                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Appointment Schedule &amp; Calendar</h2>
+                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Appointment Schedule &amp; Confirmations</h2>
                         <p class="text-xs sm:text-sm text-sage-600 mt-1">
-                            Manage client sessions, launch telehealth rooms, and export or import standard <code>.ics</code> calendar files.
+                            Schedule sessions, send confirmation emails to clients, track live confirmation status, and export/import <code>.ics</code> files.
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2.5">
@@ -193,9 +197,13 @@
                             <i data-lucide="plus" class="w-4 h-4"></i>
                             <span>New Appointment</span>
                         </button>
+                        <button onclick="refreshPortalState()" class="bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 text-sage-700"></i>
+                            <span>Sync Confirmations</span>
+                        </button>
                         <button onclick="exportAllAppointmentsICS()" class="bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
                             <i data-lucide="download" class="w-4 h-4 text-sage-700"></i>
-                            <span>Export Full .ics</span>
+                            <span>Export .ics</span>
                         </button>
                         <label class="cursor-pointer bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
                             <i data-lucide="upload" class="w-4 h-4 text-sage-700"></i>
@@ -205,7 +213,7 @@
                     </div>
                 </div>
 
-                <!-- Calendar Grid + Selected Month Appointments -->
+                <!-- Calendar Grid + Appointments List -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                     <!-- Left 7 Cols: Interactive Monthly Calendar -->
@@ -225,7 +233,6 @@
                             </div>
                         </div>
 
-                        <!-- Weekday Headers -->
                         <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wider text-sage-500 pb-2 border-b border-sand-200">
                             <div>Sun</div>
                             <div>Mon</div>
@@ -236,11 +243,10 @@
                             <div>Sat</div>
                         </div>
 
-                        <!-- Days Grid -->
                         <div id="calendar-days-grid" class="grid grid-cols-7 gap-1.5 mt-2"></div>
                     </div>
 
-                    <!-- Right 5 Cols: Appointments List & Quick Actions -->
+                    <!-- Right 5 Cols: Appointments List & Confirmation Controls -->
                     <div class="lg:col-span-5 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
                         <div class="flex items-center justify-between border-b border-sand-200 pb-3">
                             <div>
@@ -252,14 +258,63 @@
                             </button>
                         </div>
 
-                        <div id="appointments-list-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
+                        <div id="appointments-list-container" class="space-y-3 max-h-[560px] overflow-y-auto pr-1"></div>
                     </div>
 
                 </div>
             </section>
 
             <!-- =================================================================
-                 TAB 2: CLINICIAN BACKEND VIDEO STUDIO (AUTO-LOGS HOURS)
+                 TAB 2: EMAIL INBOX, SENT LOG & APPOINTMENT CONFIRMATIONS
+                 ================================================================= -->
+            <section id="portal-tab-emails" class="hidden space-y-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
+                    <div>
+                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Email Center &amp; Client Confirmations</h2>
+                        <p class="text-xs sm:text-sm text-sage-600 mt-1">
+                            View incoming appointment confirmation replies, website inquiries, and sent confirmation messages.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <button onclick="openComposeEmailModal()" class="bg-sage-600 hover:bg-sage-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition flex items-center gap-2">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>Compose Email</span>
+                        </button>
+                        <button onclick="refreshPortalState()" class="bg-sand-100 hover:bg-sand-200 text-sage-800 border border-sand-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 text-sage-700"></i>
+                            <span>Check New Mail</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <!-- Inbound Confirmations & Inquiries (Left 7 Cols) -->
+                    <div class="lg:col-span-7 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
+                        <div class="flex items-center justify-between border-b border-sand-200 pb-3">
+                            <h3 class="font-serif text-xl font-semibold text-sage-900 flex items-center gap-2">
+                                <i data-lucide="inbox" class="w-5 h-5 text-emerald-600"></i>
+                                <span>Received Emails &amp; Confirmations</span>
+                            </h3>
+                            <span class="text-xs text-sage-500">Auto-updates appointment status</span>
+                        </div>
+                        <div id="inbound-emails-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
+                    </div>
+
+                    <!-- Outbound Sent Emails (Right 5 Cols) -->
+                    <div class="lg:col-span-5 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
+                        <div class="flex items-center justify-between border-b border-sand-200 pb-3">
+                            <h3 class="font-serif text-xl font-semibold text-sage-900 flex items-center gap-2">
+                                <i data-lucide="mail-check" class="w-5 h-5 text-sage-600"></i>
+                                <span>Sent Confirmation &amp; Outbound Log</span>
+                            </h3>
+                        </div>
+                        <div id="outbound-emails-container" class="space-y-3 max-h-[540px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =================================================================
+                 TAB 3: CLINICIAN BACKEND VIDEO STUDIO (AUTO-LOGS HOURS)
                  ================================================================= -->
             <section id="portal-tab-video" class="hidden space-y-6">
                 <div class="bg-sage-900 text-sand-50 rounded-3xl p-6 sm:p-8 border border-sage-800 shadow-xl">
@@ -293,7 +348,6 @@
                                 </span>
                             </div>
 
-                            <!-- Select Scheduled Appointment -->
                             <div>
                                 <label for="portal-appt-select" class="block text-xs font-semibold text-sage-200 mb-1">
                                     Load From Scheduled Appointment
@@ -303,7 +357,6 @@
                                 </select>
                             </div>
 
-                            <!-- Client Name (for Hours Tracker attribution) -->
                             <div>
                                 <label for="portal-client-name" class="block text-xs font-semibold text-sage-200 mb-1">
                                     Client Name (Logged to Hours Tracker)
@@ -316,7 +369,6 @@
                                 >
                             </div>
 
-                            <!-- Session Room Code -->
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label for="portal-room-code" class="block text-xs font-semibold text-sage-200">
@@ -334,7 +386,6 @@
                                 >
                             </div>
 
-                            <!-- Private Clinical Session Notes (Saved to Hours Log) -->
                             <div>
                                 <label for="portal-session-notes" class="block text-xs font-semibold text-sage-200 mb-1">
                                     Private Clinical Notes (Saved with Hours)
@@ -347,7 +398,6 @@
                                 ></textarea>
                             </div>
 
-                            <!-- Camera & Join Buttons -->
                             <div class="space-y-2 pt-1">
                                 <button
                                     type="button"
@@ -368,7 +418,6 @@
                                 </button>
                             </div>
 
-                            <!-- Live Tracked Time Indicator -->
                             <div class="bg-sage-900/90 border border-sage-700 rounded-xl p-3 flex items-center justify-between text-xs">
                                 <span class="text-sage-300">Billable / Tracked Time:</span>
                                 <span id="portal-tracked-time-readout" class="font-mono font-semibold text-emerald-300">00:00 (0.00 hrs)</span>
@@ -378,7 +427,6 @@
                         <!-- Right 8 Cols: Video Stage & In-Session Chat -->
                         <div class="lg:col-span-8 space-y-4">
                             <div id="portal-video-stage" class="relative bg-black rounded-3xl overflow-hidden border border-sage-700 shadow-2xl aspect-video flex flex-col justify-between">
-                                <!-- Top Bar -->
                                 <div class="relative z-20 flex items-center justify-between px-5 py-3 bg-gradient-to-b from-black/75 via-black/30 to-transparent">
                                     <div class="flex items-center gap-2">
                                         <span id="portal-live-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
@@ -393,14 +441,12 @@
                                     </div>
                                 </div>
 
-                                <!-- Remote Client Video -->
                                 <video id="portal-remote-video" autoplay playsinline class="hidden absolute inset-0 w-full h-full object-cover z-0"></video>
 
                                 <div id="portal-remote-badge" class="hidden absolute bottom-20 left-5 z-20 bg-black/65 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-white/15">
                                     Connected Client
                                 </div>
 
-                                <!-- Waiting Overlay -->
                                 <div id="portal-waiting-overlay" class="relative z-10 flex-1 flex flex-col items-center justify-center text-center p-6">
                                     <div class="w-16 h-16 rounded-full bg-sage-800 border border-sage-600 flex items-center justify-center mb-4">
                                         <i data-lucide="video" class="w-7 h-7 text-emerald-300"></i>
@@ -413,7 +459,6 @@
                                     </p>
                                 </div>
 
-                                <!-- Local Clinician PiP -->
                                 <div class="absolute bottom-20 right-4 sm:right-5 z-20 w-32 sm:w-44 aspect-video bg-sage-900 rounded-2xl overflow-hidden border-2 border-sage-500 shadow-xl">
                                     <video id="portal-local-video" autoplay playsinline muted class="w-full h-full object-cover mirror-video hidden"></video>
                                     <div id="portal-local-placeholder" class="w-full h-full flex flex-col items-center justify-center bg-sage-800 text-sage-300 p-2 text-center">
@@ -422,7 +467,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Bottom Controls -->
                                 <div class="relative z-20 px-4 py-3.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent flex items-center justify-center gap-3">
                                     <button id="portal-mic-btn" type="button" onclick="togglePortalMic()" class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition">
                                         <i data-lucide="mic" class="w-5 h-5"></i>
@@ -440,7 +484,6 @@
                                 </div>
                             </div>
 
-                            <!-- Two-Way Client Chat Box -->
                             <div class="bg-sage-800/80 border border-sage-700 rounded-2xl p-4 space-y-3">
                                 <div class="flex items-center justify-between">
                                     <span class="text-xs font-semibold uppercase tracking-wider text-sage-200 flex items-center gap-1.5">
@@ -471,10 +514,9 @@
             </section>
 
             <!-- =================================================================
-                 TAB 3: CLINICAL HOURS TRACKER (BASED ON VIDEO CHAT USAGE)
+                 TAB 4: CLINICAL HOURS TRACKER (BASED ON VIDEO CHAT USAGE)
                  ================================================================= -->
             <section id="portal-tab-hours" class="hidden space-y-8">
-                <!-- Header & Actions -->
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
                     <div>
                         <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Clinical Video Hours Tracker</h2>
@@ -548,7 +590,7 @@
     </div>
 
     <!-- =====================================================================
-         MODAL 1: CREATE / EDIT APPOINTMENT
+         MODAL 1: CREATE / EDIT APPOINTMENT (WITH EMAIL CONFIRMATION OPTION)
          ===================================================================== -->
     <div id="appointment-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
@@ -568,8 +610,8 @@
                         <input type="text" id="appt-client" required placeholder="e.g., Alex Morgan" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Client Email</label>
-                        <input type="email" id="appt-email" placeholder="alex@example.com" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Client Email *</label>
+                        <input type="email" id="appt-email" required placeholder="alex@example.com" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
                     </div>
                 </div>
 
@@ -594,7 +636,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Service Type</label>
                         <select id="appt-service" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
@@ -605,8 +647,17 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Telehealth Room Code</label>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Room Code</label>
                         <input type="text" id="appt-room" required placeholder="LINDA-101" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 font-mono text-sm uppercase">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Status</label>
+                        <select id="appt-status" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                            <option value="Pending">Pending</option>
+                            <option value="Awaiting Confirmation">Awaiting Confirmation</option>
+                            <option value="Confirmed">Confirmed</option>
+                            <option value="Reschedule Requested">Reschedule Requested</option>
+                        </select>
                     </div>
                 </div>
 
@@ -614,6 +665,11 @@
                     <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Appointment Notes</label>
                     <textarea id="appt-notes" rows="2" placeholder="Optional session preparation notes..." class="w-full px-3.5 py-2 rounded-xl bg-sand-50 border border-sand-300 text-sm"></textarea>
                 </div>
+
+                <label class="flex items-center gap-2.5 bg-sage-50 border border-sage-200 p-3 rounded-xl cursor-pointer">
+                    <input type="checkbox" id="appt-send-email-check" checked class="w-4 h-4 text-sage-600 rounded">
+                    <span class="text-xs font-medium text-sage-900">Automatically send Appointment Confirmation Email to client upon saving</span>
+                </label>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
                     <button type="button" onclick="closeAppointmentModal()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-700 text-xs sm:text-sm font-medium">
@@ -628,7 +684,45 @@
     </div>
 
     <!-- =====================================================================
-         MODAL 2: MANUAL HOURS LOG ENTRY
+         MODAL 2: COMPOSE / SEND CUSTOM EMAIL
+         ===================================================================== -->
+    <div id="compose-email-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-sand-200 pb-4">
+                <h3 class="font-serif text-2xl font-semibold text-sage-900">Compose Client Email</h3>
+                <button onclick="closeComposeEmailModal()" class="text-sage-500 hover:text-sage-900">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="sendCustomEmailForm(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">To (Client Email) *</label>
+                    <input type="email" id="compose-to" required placeholder="client@example.com" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Subject *</label>
+                    <input type="text" id="compose-subject" required placeholder="Message from Linda Milewski, LCSW" class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Message *</label>
+                    <textarea id="compose-body" rows="5" required placeholder="Write your message here..." class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm"></textarea>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-3 border-t border-sand-200">
+                    <button type="button" onclick="closeComposeEmailModal()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-700 text-xs sm:text-sm font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" id="compose-submit-btn" class="bg-sage-600 hover:bg-sage-700 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition flex items-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        <span>Send Email</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 3: MANUAL HOURS LOG ENTRY
          ===================================================================== -->
     <div id="manual-hours-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
@@ -687,16 +781,17 @@
         const PORTAL_TOKEN_KEY = "linda_portal_auth_token";
         const LOCAL_APPTS_KEY = "linda_portal_appointments_v1";
         const LOCAL_HOURS_KEY = "linda_portal_hours_v1";
+        const LOCAL_EMAILS_KEY = "linda_portal_emails_v1";
 
         let authToken = sessionStorage.getItem(PORTAL_TOKEN_KEY) || localStorage.getItem(PORTAL_TOKEN_KEY) || null;
         let appointments = [];
         let hoursLogs = [];
+        let emailLogs = [];
 
         // Calendar State
         let currentCalDate = new Date();
-        let selectedDateFilter = null; // YYYY-MM-DD or null
+        let selectedDateFilter = null;
 
-        // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
             if (authToken) {
@@ -741,9 +836,7 @@
                     unlockPortalDashboard();
                     return;
                 }
-            } catch {
-                // Fallback if running static file locally without Worker route
-            }
+            } catch {}
 
             if (username.toLowerCase() === 'lmilewski' && password === 'chrysalis63') {
                 authToken = btoa('lmilewski:chrysalis63');
@@ -758,9 +851,14 @@
         async function unlockPortalDashboard() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('portal-dashboard').classList.remove('hidden');
+            await refreshPortalState();
+        }
+
+        async function refreshPortalState() {
             await loadPortalData();
             renderCalendar();
             renderAppointmentsList();
+            renderEmailsCenter();
             populateStudioAppointmentDropdown();
             renderHoursTracker();
             if (window.lucide) lucide.createIcons();
@@ -779,19 +877,20 @@
         }
 
         function switchPortalTab(tabName) {
-            ['calendar', 'video', 'hours'].forEach((t) => {
+            ['calendar', 'emails', 'video', 'hours'].forEach((t) => {
                 const section = document.getElementById(`portal-tab-${t}`);
                 const btn = document.getElementById(`tab-btn-${t}`);
                 if (t === tabName) {
                     section.classList.remove('hidden');
-                    btn.className = "portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm";
+                    btn.className = "portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sage-600 text-white shadow-sm";
                 } else {
                     section.classList.add('hidden');
-                    btn.className = "portal-tab-btn px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white";
+                    btn.className = "portal-tab-btn px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-sage-200 hover:text-white";
                 }
             });
             if (tabName === 'hours') renderHoursTracker();
             if (tabName === 'video') populateStudioAppointmentDropdown();
+            if (tabName === 'emails') renderEmailsCenter();
             if (window.lucide) lucide.createIcons();
         }
 
@@ -799,20 +898,21 @@
         // DATA SYNC (Cloudflare Durable Object API + localStorage Mirror)
         // =====================================================================
         async function loadPortalData() {
-            // Load local cache first
             try {
                 appointments = JSON.parse(localStorage.getItem(LOCAL_APPTS_KEY) || '[]');
                 hoursLogs = JSON.parse(localStorage.getItem(LOCAL_HOURS_KEY) || '[]');
+                emailLogs = JSON.parse(localStorage.getItem(LOCAL_EMAILS_KEY) || '[]');
             } catch {
                 appointments = [];
                 hoursLogs = [];
+                emailLogs = [];
             }
 
-            // Sync from Cloudflare Worker Durable Object storage if available
             try {
-                const [apptRes, hoursRes] = await Promise.all([
+                const [apptRes, hoursRes, emailRes] = await Promise.all([
                     fetch('/api/appointments', { headers: { Authorization: `Bearer ${authToken}` } }),
-                    fetch('/api/hours', { headers: { Authorization: `Bearer ${authToken}` } })
+                    fetch('/api/hours', { headers: { Authorization: `Bearer ${authToken}` } }),
+                    fetch('/api/emails', { headers: { Authorization: `Bearer ${authToken}` } })
                 ]);
                 if (apptRes.ok) {
                     const data = await apptRes.json();
@@ -828,9 +928,14 @@
                         localStorage.setItem(LOCAL_HOURS_KEY, JSON.stringify(hoursLogs));
                     }
                 }
-            } catch {
-                // Offline/local fallback uses localStorage
-            }
+                if (emailRes.ok) {
+                    const data = await emailRes.json();
+                    if (Array.isArray(data.emails)) {
+                        emailLogs = data.emails;
+                        localStorage.setItem(LOCAL_EMAILS_KEY, JSON.stringify(emailLogs));
+                    }
+                }
+            } catch {}
         }
 
         async function persistAppointment(appointment) {
@@ -893,6 +998,139 @@
         }
 
         // =====================================================================
+        // SENDING & RECEIVING EMAILS + APPOINTMENT CONFIRMATIONS
+        // =====================================================================
+        async function sendConfirmationEmailForAppt(apptId) {
+            const appt = appointments.find((a) => a.id === apptId);
+            if (!appt) return;
+            if (!appt.clientEmail) {
+                alert("Please add an email address to this client's appointment first.");
+                openAppointmentModal('', apptId);
+                return;
+            }
+
+            appt.status = appt.status === "Confirmed" ? "Confirmed" : "Awaiting Confirmation";
+            await persistAppointment(appt);
+            renderCalendar();
+            renderAppointmentsList();
+
+            try {
+                const res = await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        to: appt.clientEmail,
+                        appointment: appt
+                    })
+                });
+                const data = await res.json();
+                await loadPortalData();
+                renderEmailsCenter();
+                showPortalToast(`Confirmation email sent to ${appt.clientEmail}`);
+            } catch (err) {
+                showPortalToast("Confirmation email logged locally.");
+            }
+        }
+
+        function openComposeEmailModal(prefillTo = '', prefillSubject = '') {
+            document.getElementById('compose-to').value = prefillTo;
+            document.getElementById('compose-subject').value = prefillSubject;
+            document.getElementById('compose-body').value = '';
+            document.getElementById('compose-email-modal').classList.remove('hidden');
+        }
+
+        function closeComposeEmailModal() {
+            document.getElementById('compose-email-modal').classList.add('hidden');
+        }
+
+        async function sendCustomEmailForm(e) {
+            e.preventDefault();
+            const to = document.getElementById('compose-to').value.trim();
+            const subject = document.getElementById('compose-subject').value.trim();
+            const text = document.getElementById('compose-body').value.trim();
+
+            try {
+                await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ to, subject, text })
+                });
+                await loadPortalData();
+                renderEmailsCenter();
+                closeComposeEmailModal();
+                showPortalToast(`Email sent to ${to}`);
+            } catch {
+                closeComposeEmailModal();
+                showPortalToast("Email logged.");
+            }
+        }
+
+        function renderEmailsCenter() {
+            const inboundBox = document.getElementById('inbound-emails-container');
+            const outboundBox = document.getElementById('outbound-emails-container');
+            const badge = document.getElementById('inbox-count-badge');
+
+            const inbound = emailLogs.filter((e) => e.direction === 'inbound');
+            const outbound = emailLogs.filter((e) => e.direction === 'outbound');
+
+            if (inbound.length > 0) {
+                badge.textContent = String(inbound.length);
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            if (inbound.length === 0) {
+                inboundBox.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 text-xs sm:text-sm">
+                        No incoming emails or confirmation replies yet. When clients reply to confirmation emails or submit the contact form, they appear here automatically.
+                    </div>
+                `;
+            } else {
+                inboundBox.innerHTML = inbound.map((item) => `
+                    <div class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="text-[11px] font-semibold text-emerald-700 block">${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
+                                <h4 class="font-semibold text-sm text-sage-900">${escapeHtml(item.subject)}</h4>
+                                <p class="text-xs text-sage-600">From: <strong>${escapeHtml(item.from)}</strong></p>
+                            </div>
+                            ${item.resultingStatus ? `
+                                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${item.resultingStatus === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                    ${escapeHtml(item.resultingStatus)}
+                                </span>
+                            ` : ''}
+                        </div>
+                        <p class="text-xs text-sage-800 bg-white p-3 rounded-xl border border-sand-200 whitespace-pre-line">${escapeHtml(item.body)}</p>
+                    </div>
+                `).join('');
+            }
+
+            if (outbound.length === 0) {
+                outboundBox.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-sand-50 rounded-2xl border border-dashed border-sand-300 text-sage-600 text-xs sm:text-sm">
+                        No outbound emails sent yet. Click <strong>"Email Confirm"</strong> on any appointment to send a confirmation request.
+                    </div>
+                `;
+            } else {
+                outboundBox.innerHTML = outbound.map((item) => `
+                    <div class="p-4 rounded-2xl bg-sand-50 border border-sand-200 space-y-1.5">
+                        <span class="text-[10px] font-semibold text-sage-500 block">${escapeHtml(new Date(item.timestamp).toLocaleString())}</span>
+                        <h4 class="font-semibold text-xs sm:text-sm text-sage-900">${escapeHtml(item.subject)}</h4>
+                        <p class="text-xs text-sage-700">To: <strong>${escapeHtml(item.to)}</strong></p>
+                        <p class="text-[11px] text-emerald-700 font-medium">${escapeHtml(item.deliveryStatus || 'Sent')}</p>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // =====================================================================
         // CALENDAR & APPOINTMENT MANAGEMENT
         // =====================================================================
         function formatYMD(dateObj) {
@@ -926,6 +1164,20 @@
             renderAppointmentsList();
         }
 
+        function getStatusBadgeHtml(status) {
+            const st = status || 'Pending';
+            if (st === 'Confirmed') {
+                return `<span class="text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">Confirmed ✓</span>`;
+            }
+            if (st === 'Reschedule Requested') {
+                return `<span class="text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-300 px-2.5 py-0.5 rounded-full">Reschedule Requested</span>`;
+            }
+            if (st === 'Awaiting Confirmation') {
+                return `<span class="text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full">Email Sent • Awaiting Reply</span>`;
+            }
+            return `<span class="text-[11px] font-semibold bg-sand-200 text-sage-800 px-2.5 py-0.5 rounded-full">Pending</span>`;
+        }
+
         function renderCalendar() {
             const year = currentCalDate.getFullYear();
             const month = currentCalDate.getMonth();
@@ -942,14 +1194,12 @@
             const grid = document.getElementById('calendar-days-grid');
             grid.innerHTML = '';
 
-            // Blank leading cells
             for (let i = 0; i < firstDay; i++) {
                 const empty = document.createElement('div');
                 empty.className = "h-20 rounded-2xl bg-sand-50/40";
                 grid.appendChild(empty);
             }
 
-            // Day cells
             for (let day = 1; day <= daysInMonth; day++) {
                 const ymd = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dayAppts = appointments.filter((a) => a.date === ymd);
@@ -970,10 +1220,11 @@
                 let badgesHtml = '';
                 if (dayAppts.length > 0) {
                     const firstAppt = dayAppts[0];
+                    const isConfirmed = firstAppt.status === 'Confirmed';
                     badgesHtml = `
                         <div class="space-y-0.5 w-full overflow-hidden">
-                            <div class="text-[10px] truncate px-1.5 py-0.5 rounded ${isSelected ? 'bg-emerald-500 text-white' : 'bg-sage-100 text-sage-800'} font-medium">
-                                ${escapeHtml(firstAppt.time)} ${escapeHtml(firstAppt.clientName)}
+                            <div class="text-[10px] truncate px-1.5 py-0.5 rounded ${isSelected ? 'bg-emerald-500 text-white' : isConfirmed ? 'bg-emerald-100 text-emerald-900' : 'bg-sage-100 text-sage-800'} font-medium">
+                                ${isConfirmed ? '✓ ' : ''}${escapeHtml(firstAppt.time)} ${escapeHtml(firstAppt.clientName)}
                             </div>
                             ${dayAppts.length > 1 ? `<div class="text-[10px] font-semibold ${isSelected ? 'text-emerald-200' : 'text-sage-600'} pl-1">+${dayAppts.length - 1} more</div>` : ''}
                         </div>
@@ -1030,18 +1281,25 @@
                                 ${escapeHtml(appt.date)} • ${escapeHtml(appt.time)} (${escapeHtml(appt.duration)} min)
                             </span>
                             <h4 class="font-serif text-lg font-semibold text-sage-900">${escapeHtml(appt.clientName)}</h4>
-                            <p class="text-xs text-sage-700">${escapeHtml(appt.service)}</p>
+                            <p class="text-xs text-sage-700">${escapeHtml(appt.service)} ${appt.clientEmail ? `• ${escapeHtml(appt.clientEmail)}` : ''}</p>
                         </div>
-                        <span class="font-mono text-xs font-semibold bg-sage-100 text-sage-800 px-2.5 py-1 rounded-lg border border-sage-200">
-                            ${escapeHtml(appt.roomCode)}
-                        </span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="font-mono text-xs font-semibold bg-sage-100 text-sage-800 px-2.5 py-0.5 rounded-lg border border-sage-200">
+                                ${escapeHtml(appt.roomCode)}
+                            </span>
+                            ${getStatusBadgeHtml(appt.status)}
+                        </div>
                     </div>
                     ${appt.notes ? `<p class="text-xs text-sage-600 italic bg-white p-2.5 rounded-xl border border-sand-200">${escapeHtml(appt.notes)}</p>` : ''}
                     <div class="pt-2 border-t border-sand-200 flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex flex-wrap items-center gap-1.5">
                             <button onclick="launchAppointmentVideo('${appt.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
                                 <i data-lucide="video" class="w-3.5 h-3.5"></i>
-                                <span>Launch Video</span>
+                                <span>Video</span>
+                            </button>
+                            <button onclick="sendConfirmationEmailForAppt('${appt.id}')" title="Send Confirmation Request Email to Client" class="bg-sage-700 hover:bg-sage-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+                                <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+                                <span>Email Confirm</span>
                             </button>
                             <button onclick="downloadSingleAppointmentICS('${appt.id}')" title="Download .ics Calendar File" class="bg-white hover:bg-sand-100 text-sage-800 border border-sand-300 text-xs font-medium px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
                                 <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
@@ -1077,13 +1335,17 @@
                     document.getElementById('appt-duration').value = appt.duration;
                     document.getElementById('appt-service').value = appt.service;
                     document.getElementById('appt-room').value = appt.roomCode;
+                    document.getElementById('appt-status').value = appt.status || 'Pending';
                     document.getElementById('appt-notes').value = appt.notes || '';
+                    document.getElementById('appt-send-email-check').checked = false;
                 }
             } else {
                 title.textContent = "Schedule New Appointment";
                 document.getElementById('appt-id').value = '';
                 document.getElementById('appt-date').value = defaultDate || selectedDateFilter || formatYMD(new Date());
                 document.getElementById('appt-room').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+                document.getElementById('appt-status').value = 'Pending';
+                document.getElementById('appt-send-email-check').checked = true;
             }
 
             modal.classList.remove('hidden');
@@ -1096,6 +1358,9 @@
         async function saveAppointmentForm(e) {
             e.preventDefault();
             const id = document.getElementById('appt-id').value || crypto.randomUUID();
+            const shouldEmail = document.getElementById('appt-send-email-check').checked;
+            const statusVal = document.getElementById('appt-status').value || 'Pending';
+
             const appointment = {
                 id,
                 clientName: document.getElementById('appt-client').value.trim(),
@@ -1105,6 +1370,7 @@
                 duration: parseInt(document.getElementById('appt-duration').value, 10) || 50,
                 service: document.getElementById('appt-service').value,
                 roomCode: document.getElementById('appt-room').value.trim().toUpperCase(),
+                status: shouldEmail && statusVal === 'Pending' ? 'Awaiting Confirmation' : statusVal,
                 notes: document.getElementById('appt-notes').value.trim()
             };
 
@@ -1113,7 +1379,12 @@
             renderCalendar();
             renderAppointmentsList();
             populateStudioAppointmentDropdown();
-            showPortalToast(`Saved appointment for ${appointment.clientName}`);
+
+            if (shouldEmail && appointment.clientEmail) {
+                await sendConfirmationEmailForAppt(appointment.id);
+            } else {
+                showPortalToast(`Saved appointment for ${appointment.clientName}`);
+            }
         }
 
         async function deleteAppointment(id) {
@@ -1126,7 +1397,7 @@
         }
 
         // =====================================================================
-        // .ICS CALENDAR EXPORT & IMPORT FUNCTIONALITY (RFC 5545)
+        // .ICS CALENDAR EXPORT & IMPORT FUNCTIONALITY
         // =====================================================================
         function toICSDateTime(dateStr, timeStr, addMinutes = 0) {
             const [y, m, d] = dateStr.split('-').map(Number);
@@ -1151,7 +1422,7 @@
                 const dtStart = toICSDateTime(appt.date, appt.time, 0);
                 const dtEnd = toICSDateTime(appt.date, appt.time, Number(appt.duration) || 50);
                 const inviteUrl = `${window.location.origin}/index.html?room=${encodeURIComponent(appt.roomCode)}#telehealth`;
-                const desc = `Service: ${appt.service}\\nRoom Code: ${appt.roomCode}\\nJoin Video Session: ${inviteUrl}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`;
+                const desc = `Service: ${appt.service}\\nStatus: ${appt.status || 'Pending'}\\nRoom Code: ${appt.roomCode}\\nJoin Video Session: ${inviteUrl}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`;
 
                 lines.push(
                     "BEGIN:VEVENT",
@@ -1239,6 +1510,7 @@
                             duration,
                             service: "Individual Psychotherapy",
                             roomCode,
+                            status: "Confirmed",
                             notes: "Imported from .ics calendar file"
                         });
                         importedCount++;
@@ -1271,7 +1543,7 @@
             if (!select) return;
             const sorted = [...appointments].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
             select.innerHTML = `<option value="">-- Select Scheduled Appointment or Enter Custom --</option>` +
-                sorted.map((a) => `<option value="${a.id}">${escapeHtml(a.date)} ${escapeHtml(a.time)} — ${escapeHtml(a.clientName)} (${escapeHtml(a.roomCode)})</option>`).join('');
+                sorted.map((a) => `<option value="${a.id}">${escapeHtml(a.date)} ${escapeHtml(a.time)} — ${escapeHtml(a.clientName)} (${escapeHtml(a.roomCode)}) [${escapeHtml(a.status || 'Pending')}]</option>`).join('');
         }
 
         function loadAppointmentIntoStudio(apptId) {
@@ -1405,7 +1677,6 @@
                 document.getElementById('portal-conn-badge').textContent = "In Room • Tracking Time";
                 startPortalSessionTimer();
             } catch (err) {
-                console.warn("Signaling server offline or local preview, starting local session timer:", err);
                 document.getElementById('portal-join-btn-text').textContent = `Active in ${roomCodeRaw.toUpperCase()}`;
                 startPortalSessionTimer();
             }
@@ -1445,7 +1716,6 @@
                 portalTimerInterval = null;
             }
 
-            // Automatically log the video session duration if session ran for at least 5 seconds
             if (portalSessionSeconds >= 5) {
                 const clientName = document.getElementById('portal-client-name').value.trim() || "Telehealth Client";
                 const roomCode = document.getElementById('portal-room-code').value.trim().toUpperCase() || "TELEHEALTH";
@@ -1549,7 +1819,7 @@
             const totalHours = (totalSeconds / 3600).toFixed(2);
             const totalMinutes = Math.round(totalSeconds / 60);
 
-            const currentMonthPrefix = formatYMD(new Date()).slice(0, 7); // YYYY-MM
+            const currentMonthPrefix = formatYMD(new Date()).slice(0, 7);
             const monthSeconds = hoursLogs
                 .filter((h) => (h.date || '').startsWith(currentMonthPrefix))
                 .reduce((acc, h) => acc + (Number(h.durationSeconds) || 0), 0);

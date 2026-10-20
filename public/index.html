@@ -975,6 +975,58 @@
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
         }
+
+        // Contact Form Submission: Sends to Built-in Worker Email API + Formspree
+        const contactForm = document.getElementById('email-contact-form');
+        if (contactForm) {
+            contactForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const name = document.getElementById('client-name').value.trim();
+                const email = document.getElementById('client-email').value.trim();
+                const phone = document.getElementById('client-phone').value.trim();
+                const preferred_reply_method = document.getElementById('contact-preference').value;
+                const service_interest = document.getElementById('service-interest').value;
+                const referral_source = document.getElementById('referral-source').value;
+                const message = document.getElementById('client-message').value.trim();
+
+                document.getElementById('err-name').classList.toggle('hidden', Boolean(name));
+                document.getElementById('err-email').classList.toggle('hidden', Boolean(email));
+                document.getElementById('err-message').classList.toggle('hidden', Boolean(message));
+                if (!name || !email || !message) return;
+
+                const submitBtn = document.getElementById('submit-btn');
+                const submitBtnText = document.getElementById('submit-btn-text');
+                submitBtn.disabled = true;
+                submitBtnText.textContent = "Sending...";
+
+                try {
+                    const formData = new FormData(contactForm);
+                    await Promise.allSettled([
+                        fetch('/api/public-contact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name, email, phone, preferred_reply_method, service_interest, referral_source, message })
+                        }),
+                        fetch('https://formspree.io/f/xgaobpow', {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'Accept': 'application/json' }
+                        })
+                    ]);
+
+                    contactForm.classList.add('hidden');
+                    const successBox = document.getElementById('form-success-box');
+                    document.getElementById('success-timestamp').textContent = `Sent by ${name} (${email})`;
+                    document.getElementById('success-summary').textContent = `Thank you, ${name}! Your inquiry regarding ${service_interest} has been delivered to Linda Milewski, LCSW.`;
+                    successBox.classList.remove('hidden');
+                } catch {
+                    document.getElementById('form-error-box').classList.remove('hidden');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtnText.textContent = "Send Email Message";
+                }
+            });
+        }
     </script>
 </body>
 </html>
