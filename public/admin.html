@@ -166,6 +166,13 @@
 
                 <!-- Right Actions -->
                 <div class="flex items-center gap-2.5">
+                    <span id="portal-user-label" class="hidden sm:inline text-xs text-sage-200"></span>
+                    <button onclick="openPasswordChange()" class="text-xs text-sage-100 bg-sage-800 hover:bg-sage-700 px-3 py-2 rounded-xl border border-sage-700 transition">
+                        Change Password
+                    </button>
+                    <button id="manage-users-button" onclick="openUserManagement()" class="hidden text-xs text-sage-100 bg-sage-800 hover:bg-sage-700 px-3 py-2 rounded-xl border border-sage-700 transition">
+                        Manage Users
+                    </button>
                     <a href="index.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 text-xs text-sage-200 hover:text-white bg-sage-800 px-3 py-2 rounded-xl border border-sage-700 transition">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                         <span>Public Site</span>
@@ -682,6 +689,75 @@
         </div>
     </div>
 
+    <div id="change-password-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-sand-200 pb-4">
+                <h3 class="font-serif text-2xl font-semibold text-sage-900">Change Password</h3>
+                <button type="button" onclick="closePasswordChange()" class="text-sage-500 hover:text-sage-900" aria-label="Close password change">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="change-password-form" class="space-y-4">
+                <label class="block text-xs font-semibold text-sage-800">Current password
+                    <input id="current-password" type="password" required autocomplete="current-password" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </label>
+                <label class="block text-xs font-semibold text-sage-800">New password (12+ characters)
+                    <input id="new-password" type="password" required minlength="12" autocomplete="new-password" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </label>
+                <label class="block text-xs font-semibold text-sage-800">Confirm new password
+                    <input id="confirm-new-password" type="password" required minlength="12" autocomplete="new-password" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                </label>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closePasswordChange()" class="px-4 py-2.5 rounded-xl border border-sand-300 text-sage-700 text-xs font-medium">Cancel</button>
+                    <button type="submit" id="change-password-submit" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Administrator-only staff account management -->
+    <div id="user-management-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 border border-sand-200 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-sand-200 pb-4">
+                <div>
+                    <h3 class="font-serif text-2xl font-semibold text-sage-900">Manage Portal Users</h3>
+                    <p class="text-xs text-sage-600 mt-1">Staff can use all portal areas. Only administrators can manage accounts.</p>
+                </div>
+                <button type="button" onclick="closeUserManagement()" class="text-sage-500 hover:text-sage-900" aria-label="Close user management">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="create-user-form" class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="text-xs font-semibold text-sage-800">Display name
+                        <input id="new-user-display-name" required maxlength="80" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </label>
+                    <label class="text-xs font-semibold text-sage-800">Username
+                        <input id="new-user-username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" autocomplete="off" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </label>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="text-xs font-semibold text-sage-800">Temporary password (12+ characters)
+                        <input id="new-user-password" type="password" required minlength="12" autocomplete="new-password" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                    </label>
+                    <label class="text-xs font-semibold text-sage-800">Role
+                        <select id="new-user-role" class="mt-1 w-full px-3 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm">
+                            <option value="staff">Staff</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" id="create-user-submit" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold">Create Account</button>
+                </div>
+            </form>
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-sage-700 mb-2">Active accounts</h4>
+                <div id="portal-users-list" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- =====================================================================
          MODAL 2: COMPOSE / SEND CUSTOM EMAIL
          ===================================================================== -->
@@ -777,12 +853,11 @@
          PORTAL APPLICATION JAVASCRIPT
          ===================================================================== -->
     <script>
-        const PORTAL_TOKEN_KEY = "linda_portal_auth_token";
         const LOCAL_APPTS_KEY = "linda_portal_appointments_v1";
         const LOCAL_HOURS_KEY = "linda_portal_hours_v1";
         const LOCAL_EMAILS_KEY = "linda_portal_emails_v1";
 
-        let authToken = sessionStorage.getItem(PORTAL_TOKEN_KEY) || localStorage.getItem(PORTAL_TOKEN_KEY) || null;
+        let currentPortalUser = null;
         let appointments = [];
         let hoursLogs = [];
         let emailLogs = [];
@@ -793,9 +868,9 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) lucide.createIcons();
-            if (authToken) {
-                unlockPortalDashboard();
-            }
+            sessionStorage.removeItem("linda_portal_auth_token");
+            localStorage.removeItem("linda_portal_auth_token");
+            restorePortalSession();
         });
 
         function showPortalToast(msg) {
@@ -827,7 +902,7 @@
         }
 
         // =====================================================================
-        // AUTHENTICATION (lmilewski / chrysalis63)
+        // AUTHENTICATION
         // =====================================================================
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -842,27 +917,167 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    authToken = data.token;
-                    sessionStorage.setItem(PORTAL_TOKEN_KEY, authToken);
-                    localStorage.setItem(PORTAL_TOKEN_KEY, authToken);
-                    unlockPortalDashboard();
+                const data = await res.json();
+                if (!res.ok) {
+                    errBox.textContent = data.error || 'Unable to sign in.';
+                    errBox.classList.remove('hidden');
                     return;
                 }
-            } catch {}
-
-            if (username.toLowerCase() === 'lmilewski' && password === 'chrysalis63') {
-                authToken = btoa('lmilewski:chrysalis63');
-                sessionStorage.setItem(PORTAL_TOKEN_KEY, authToken);
-                localStorage.setItem(PORTAL_TOKEN_KEY, authToken);
-                unlockPortalDashboard();
-            } else {
+                document.getElementById('login-password').value = '';
+                await unlockPortalDashboard(data.user);
+            } catch (err) {
+                errBox.textContent = 'Could not reach the sign-in service. Please try again.';
                 errBox.classList.remove('hidden');
             }
         });
 
-        async function unlockPortalDashboard() {
+        async function restorePortalSession() {
+            try {
+                const res = await fetch('/api/session', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                await unlockPortalDashboard(data.user);
+            } catch {
+                document.getElementById('login-error').textContent = 'Could not verify your session. Please sign in again.';
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        async function openUserManagement() {
+            if (currentPortalUser?.role !== 'admin') return;
+            document.getElementById('user-management-modal').classList.remove('hidden');
+            await loadPortalUsers();
+        }
+
+        function openPasswordChange() {
+            document.getElementById('change-password-form').reset();
+            document.getElementById('change-password-modal').classList.remove('hidden');
+        }
+
+        function closePasswordChange() {
+            document.getElementById('change-password-modal').classList.add('hidden');
+        }
+
+        document.getElementById('change-password-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const newPassword = document.getElementById('new-password').value;
+            if (newPassword !== document.getElementById('confirm-new-password').value) {
+                showPortalToast('The new passwords do not match.');
+                return;
+            }
+            const button = document.getElementById('change-password-submit');
+            button.disabled = true;
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        currentPassword: document.getElementById('current-password').value,
+                        newPassword
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not change password.');
+                closePasswordChange();
+                showPortalToast('Password updated. Other sessions for your account were signed out.');
+            } catch (err) {
+                showPortalToast(err.message || 'Could not change password.');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        function closeUserManagement() {
+            document.getElementById('user-management-modal').classList.add('hidden');
+        }
+
+        async function loadPortalUsers() {
+            const list = document.getElementById('portal-users-list');
+            list.textContent = 'Loading accounts...';
+            try {
+                const res = await fetch('/api/users');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not load accounts.');
+                list.innerHTML = data.users.map((user) => `
+                    <div class="flex items-center justify-between gap-3 bg-sand-50 border border-sand-200 rounded-xl p-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-sage-900 truncate">${escapeHtml(user.displayName)}</p>
+                            <p class="text-xs text-sage-600">${escapeHtml(user.username)} · ${user.role === 'admin' ? 'Administrator' : 'Staff'}</p>
+                        </div>
+                        ${user.id !== currentPortalUser.id ? `<div class="flex items-center gap-3"><button type="button" onclick="resetPortalUserPassword('${escapeHtml(user.id)}', '${escapeHtml(user.username)}')" class="text-xs text-sage-700 hover:text-sage-900">Reset password</button><button type="button" onclick="deactivatePortalUser('${escapeHtml(user.id)}', '${escapeHtml(user.username)}')" class="text-xs text-rose-700 hover:text-rose-900">Deactivate</button></div>` : '<span class="text-[10px] text-sage-500">You</span>'}
+                    </div>
+                `).join('') || '<p class="text-xs text-sage-500">No accounts found.</p>';
+            } catch (err) {
+                list.textContent = err.message || 'Could not load accounts.';
+            }
+        }
+
+        document.getElementById('create-user-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = document.getElementById('create-user-submit');
+            button.disabled = true;
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        displayName: document.getElementById('new-user-display-name').value.trim(),
+                        username: document.getElementById('new-user-username').value.trim(),
+                        password: document.getElementById('new-user-password').value,
+                        role: document.getElementById('new-user-role').value
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not create account.');
+                form.reset();
+                await loadPortalUsers();
+                showPortalToast(`Account created for ${data.user.displayName}.`);
+            } catch (err) {
+                showPortalToast(err.message || 'Could not create account.');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        async function deactivatePortalUser(id, username) {
+            if (!confirm(`Deactivate ${username}? They will lose portal access immediately.`)) return;
+            try {
+                const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not deactivate account.');
+                await loadPortalUsers();
+                showPortalToast(`Account ${username} deactivated.`);
+            } catch (err) {
+                showPortalToast(err.message || 'Could not deactivate account.');
+            }
+        }
+
+        async function resetPortalUserPassword(id, username) {
+            const password = prompt(`Enter a temporary password for ${username} (at least 12 characters):`);
+            if (password === null) return;
+            if (password.length < 12 || password.length > 256) {
+                showPortalToast('Temporary passwords must be 12-256 characters long.');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not reset password.');
+                showPortalToast(`Password reset. Give ${username} the temporary password securely.`);
+            } catch (err) {
+                showPortalToast(err.message || 'Could not reset password.');
+            }
+        }
+
+        async function unlockPortalDashboard(user) {
+            currentPortalUser = user;
+            document.getElementById('portal-user-label').textContent = user.displayName;
+            document.getElementById('manage-users-button').classList.toggle('hidden', user.role !== 'admin');
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('portal-dashboard').classList.remove('hidden');
             await refreshPortalState();
@@ -878,16 +1093,18 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        function logoutPortal() {
+        async function logoutPortal() {
             if (portalSignaling) {
                 endAndLogPortalSession();
             }
-            authToken = null;
-            sessionStorage.removeItem(PORTAL_TOKEN_KEY);
-            localStorage.removeItem(PORTAL_TOKEN_KEY);
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch {}
+            currentPortalUser = null;
             document.getElementById('portal-dashboard').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('login-password').value = '';
+            document.getElementById('manage-users-button').classList.add('hidden');
         }
 
         function switchPortalTab(tabName) {
@@ -924,10 +1141,14 @@
 
             try {
                 const [apptRes, hoursRes, emailRes] = await Promise.all([
-                    fetch('/api/appointments', { headers: { Authorization: `Bearer ${authToken}` } }),
-                    fetch('/api/hours', { headers: { Authorization: `Bearer ${authToken}` } }),
-                    fetch('/api/emails', { headers: { Authorization: `Bearer ${authToken}` } })
+                    fetch('/api/appointments'),
+                    fetch('/api/hours'),
+                    fetch('/api/emails')
                 ]);
+                if ([apptRes, hoursRes, emailRes].some((response) => response.status === 401)) {
+                    await logoutPortal();
+                    return;
+                }
                 if (apptRes.ok) {
                     const data = await apptRes.json();
                     if (Array.isArray(data.appointments)) {
@@ -961,10 +1182,7 @@
             try {
                 await fetch('/api/appointments', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${authToken}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ appointment })
                 });
             } catch {}
@@ -976,7 +1194,7 @@
             try {
                 await fetch(`/api/appointments?id=${encodeURIComponent(id)}`, {
                     method: 'DELETE',
-                    headers: { Authorization: `Bearer ${authToken}` }
+                    headers: {}
                 });
             } catch {}
         }
@@ -990,10 +1208,7 @@
             try {
                 await fetch('/api/hours', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${authToken}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ entry })
                 });
             } catch {}
@@ -1005,7 +1220,7 @@
             try {
                 await fetch(`/api/hours?id=${encodeURIComponent(id)}`, {
                     method: 'DELETE',
-                    headers: { Authorization: `Bearer ${authToken}` }
+                    headers: {}
                 });
             } catch {}
             renderHoursTracker();
@@ -1031,10 +1246,7 @@
             try {
                 const res = await fetch('/api/send-email', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${authToken}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         to: appt.clientEmail,
                         appointment: appt
@@ -1068,10 +1280,7 @@
         async function saveEmailOrganization(email) {
             const res = await fetch('/api/emails', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${authToken}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
             if (!res.ok) throw new Error(`Could not update email organization (${res.status}).`);
@@ -1098,8 +1307,7 @@
             if (!email || !confirm(`Permanently delete "${email.subject || 'this email'}" from the portal mail log?`)) return;
             try {
                 const res = await fetch(`/api/emails?id=${encodeURIComponent(id)}`, {
-                    method: 'DELETE',
-                    headers: { Authorization: `Bearer ${authToken}` }
+                    method: 'DELETE'
                 });
                 if (!res.ok) throw new Error(`Could not delete email (${res.status}).`);
                 emailLogs = emailLogs.filter((item) => item.id !== id);
@@ -1135,10 +1343,7 @@
             try {
                 const res = await fetch('/api/send-email', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${authToken}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ to, subject, text })
                 });
                 const result = await res.json();

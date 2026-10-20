@@ -1,7 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 
-const ADMIN_USER = "lmilewski";
-const ADMIN_PASS = "chrysalis63";
+const AUTH_PASSWORD_ITERATIONS = 120000;
+const AUTH_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const AUTH_SESSION_COOKIE = "linda_portal_session";
 
 export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
@@ -66,8 +67,281 @@ export class ChatRoom extends DurableObject {
     return new Response(null, { status: 101, webSocket: client });
   }
 
+  async getSessionUser(sessionToken) {
+    if (typeof sessionToken !== "string" || !/^[a-f0-9]{64}$/i.test(sessionToken)) return null;
+    const sessionHash = await hashSessionToken(sessionToken);
+    const key = `auth:session:${sessionHash}`;
+    const session = await this.ctx.storage.get(key);
+    if (!session || session.expiresAt <= Date.now()) {
+      if (session) await this.ctx.storage.delete(key);
+      return null;
+    }
+    const users = (await this.ctx.storage.get("auth:users")) || [];
+    return users.find((user) => user.id === session.userId && user.active) || null;
+  }
+
   async handleInternalStorage(request, url) {
-    const jsonHeaders = { "Content-Type": "application/json" };
+    const jsonHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+
+    if (url.pathname === "/internal/auth/login" && request.method === "POST") {
+      const body = await request.json();
+      const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+      const password = typeof body.password === "string" ? body.password : "";
+      const rateLimitKey = `auth:login:${body.clientIp || "unknown"}`;
+      const rateLimit = (await this.ctx.storage.get(rateLimitKey)) || { count: 0, windowStartedAt: Date.now() };
+      if (Date.now() - rateLimit.windowStartedAt > 15 * 60 * 1000) {
+        rateLimit.count = 0;
+        rateLimit.windowStartedAt = Date.now();
+      }
+      if (rateLimit.count >= 10) {
+        return new Response(JSON.stringify({ error: "Too many login attempts. Try again in 15 minutes." }), {
+          status: 429,
+          headers: jsonHeaders,
+        });
+      }
+
+      let users = (await this.ctx.storage.get("auth:users")) || [];
+      if (users.length === 0) {
+        const bootstrapUsername = typeof body.bootstrapUsername === "string"
+          ? body.bootstrapUsername.trim().toLowerCase()
+          : "";
+        const bootstrapPassword = typeof body.bootstrapPassword === "string" ? body.bootstrapPassword : "";
+        if (!bootstrapUsername || bootstrapPassword.length < 12 || bootstrapPassword.length > 256) {
+          return new Response(JSON.stringify({
+            error: "Portal setup is incomplete. Configure the ADMIN_BOOTSTRAP_USERNAME and ADMIN_BOOTSTRAP_PASSWORD secrets.",
+          }), { status: 503, headers: jsonHeaders });
+        }
+        if (!/^[a-z0-9._-]{3,32}$/.test(bootstrapUsername) || username !== bootstrapUsername || password !== bootstrapPassword) {
+          await hashPortalPassword(password.slice(0, 256), new Uint8Array(16), AUTH_PASSWORD_ITERATIONS);
+          rateLimit.count += 1;
+          await this.ctx.storage.put(rateLimitKey, rateLimit);
+          return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+            status: 401,
+            headers: jsonHeaders,
+          });
+        }
+
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const admin = {
+          id: crypto.randomUUID(),
+          username: bootstrapUsername,
+          displayName: "Portal Administrator",
+          role: "admin",
+          active: true,
+          createdAt: new Date().toISOString(),
+          salt: bytesToHex(salt),
+          passwordHash: await hashPortalPassword(bootstrapPassword, salt, AUTH_PASSWORD_ITERATIONS),
+          passwordIterations: AUTH_PASSWORD_ITERATIONS,
+        };
+        users = [admin];
+        await this.ctx.storage.put("auth:users", users);
+      }
+
+      const user = users.find((item) => item.username === username && item.active);
+      const salt = user ? hexToBytes(user.salt) : new Uint8Array(16);
+      const iterations = user?.passwordIterations || AUTH_PASSWORD_ITERATIONS;
+      const passwordHash = await hashPortalPassword(password.slice(0, 256), salt, iterations);
+      if (!user || password.length > 256 || !constantTimeEqual(passwordHash, user.passwordHash)) {
+        rateLimit.count += 1;
+        await this.ctx.storage.put(rateLimitKey, rateLimit);
+        return new Response(JSON.stringify({ error: "Invalid username or password." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+
+      await this.ctx.storage.delete(rateLimitKey);
+      const sessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+      const sessionHash = await hashSessionToken(sessionToken);
+      const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
+      await this.ctx.storage.put(`auth:session:${sessionHash}`, {
+        userId: user.id,
+        expiresAt,
+      });
+      return new Response(JSON.stringify({
+        sessionToken,
+        expiresAt,
+        user: publicPortalUser(user),
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/session" && request.method === "POST") {
+      const { sessionToken } = await request.json();
+      const user = await this.getSessionUser(sessionToken);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      return new Response(JSON.stringify({ user: publicPortalUser(user) }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/change-password" && request.method === "POST") {
+      const { sessionToken, currentPassword, newPassword } = await request.json();
+      const actor = await this.getSessionUser(sessionToken);
+      if (!actor) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      if (typeof newPassword !== "string" || newPassword.length < 12 || newPassword.length > 256) {
+        return new Response(JSON.stringify({ error: "New passwords must be 12-256 characters long." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const currentHash = await hashPortalPassword(
+        typeof currentPassword === "string" ? currentPassword : "",
+        hexToBytes(actor.salt),
+        actor.passwordIterations,
+      );
+      if (!constantTimeEqual(currentHash, actor.passwordHash)) {
+        return new Response(JSON.stringify({ error: "Current password is incorrect." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      const user = users.find((item) => item.id === actor.id);
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      user.salt = bytesToHex(salt);
+      user.passwordHash = await hashPortalPassword(newPassword, salt, AUTH_PASSWORD_ITERATIONS);
+      user.passwordIterations = AUTH_PASSWORD_ITERATIONS;
+      await this.ctx.storage.put("auth:users", users);
+
+      const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+      for (const [key, session] of sessions) {
+        if (session.userId === user.id) await this.ctx.storage.delete(key);
+      }
+      const newSessionToken = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+      const sessionHash = await hashSessionToken(newSessionToken);
+      const expiresAt = Date.now() + AUTH_SESSION_TTL_MS;
+      await this.ctx.storage.put(`auth:session:${sessionHash}`, { userId: user.id, expiresAt });
+      return new Response(JSON.stringify({
+        sessionToken: newSessionToken,
+        user: publicPortalUser(user),
+      }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/logout" && request.method === "POST") {
+      const { sessionToken } = await request.json();
+      if (typeof sessionToken === "string" && sessionToken) {
+        const sessionHash = await hashSessionToken(sessionToken);
+        await this.ctx.storage.delete(`auth:session:${sessionHash}`);
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/auth/users") {
+      const body = request.method === "GET"
+        ? { sessionToken: request.headers.get("X-Portal-Session") }
+        : await request.json();
+      const actor = await this.getSessionUser(body.sessionToken);
+      if (!actor || actor.role !== "admin") {
+        return new Response(JSON.stringify({ error: "Administrator access required." }), {
+          status: actor ? 403 : 401,
+          headers: jsonHeaders,
+        });
+      }
+
+      const users = (await this.ctx.storage.get("auth:users")) || [];
+      if (request.method === "GET") {
+        return new Response(JSON.stringify({ users: users.filter((user) => user.active).map(publicPortalUser) }), {
+          headers: jsonHeaders,
+        });
+      }
+
+      if (request.method === "POST") {
+        const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
+        const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+        const password = typeof body.password === "string" ? body.password : "";
+        const role = body.role;
+        if (!/^[a-z0-9._-]{3,32}$/.test(username) || !displayName || displayName.length > 80 ||
+          password.length < 12 || password.length > 256 || !["admin", "staff"].includes(role)) {
+          return new Response(JSON.stringify({
+            error: "Enter a 3-32 character username, display name, password of at least 12 characters, and valid role.",
+          }), { status: 400, headers: jsonHeaders });
+        }
+        if (users.some((item) => item.username === username)) {
+          return new Response(JSON.stringify({ error: "That username is already in use." }), {
+            status: 409,
+            headers: jsonHeaders,
+          });
+        }
+        if (users.length >= 50) {
+          return new Response(JSON.stringify({ error: "The portal supports up to 50 accounts." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const user = {
+          id: crypto.randomUUID(),
+          username,
+          displayName,
+          role,
+          active: true,
+          createdAt: new Date().toISOString(),
+          salt: bytesToHex(salt),
+          passwordHash: await hashPortalPassword(password, salt, AUTH_PASSWORD_ITERATIONS),
+          passwordIterations: AUTH_PASSWORD_ITERATIONS,
+        };
+        users.push(user);
+        await this.ctx.storage.put("auth:users", users);
+        return new Response(JSON.stringify({ user: publicPortalUser(user) }), { status: 201, headers: jsonHeaders });
+      }
+
+      if (request.method === "PATCH") {
+        const id = url.searchParams.get("id");
+        const target = users.find((item) => item.id === id && item.active);
+        if (!target || target.id === actor.id) {
+          return new Response(JSON.stringify({ error: "Select another active account to reset." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        if (typeof body.password !== "string" || body.password.length < 12 || body.password.length > 256) {
+          return new Response(JSON.stringify({ error: "Temporary passwords must be 12-256 characters long." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        target.salt = bytesToHex(salt);
+        target.passwordHash = await hashPortalPassword(body.password, salt, AUTH_PASSWORD_ITERATIONS);
+        target.passwordIterations = AUTH_PASSWORD_ITERATIONS;
+        await this.ctx.storage.put("auth:users", users);
+        const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+        for (const [key, session] of sessions) {
+          if (session.userId === target.id) await this.ctx.storage.delete(key);
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      }
+
+      if (request.method === "DELETE") {
+        const id = url.searchParams.get("id");
+        const target = users.find((item) => item.id === id && item.active);
+        if (!target) {
+          return new Response(JSON.stringify({ error: "Account not found." }), { status: 404, headers: jsonHeaders });
+        }
+        if (target.id === actor.id) {
+          return new Response(JSON.stringify({ error: "You cannot deactivate your own account." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        if (target.role === "admin" && users.filter((item) => item.active && item.role === "admin").length <= 1) {
+          return new Response(JSON.stringify({ error: "At least one active administrator is required." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        target.active = false;
+        await this.ctx.storage.put("auth:users", users);
+        const sessions = await this.ctx.storage.list({ prefix: "auth:session:" });
+        for (const [key, session] of sessions) {
+          if (session.userId === target.id) await this.ctx.storage.delete(key);
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+      }
+    }
 
     // 1. Appointments CRUD
     if (url.pathname === "/internal/appointments") {
@@ -282,11 +556,68 @@ export class ChatRoom extends DurableObject {
   }
 }
 
-function isAuthorized(request) {
-  const authHeader = request.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-  const expectedToken = btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
-  return token === expectedToken;
+function bytesToHex(bytes) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(value) {
+  if (typeof value !== "string" || !/^(?:[a-f0-9]{2})+$/i.test(value)) return new Uint8Array(16);
+  return Uint8Array.from(value.match(/.{2}/g), (byte) => parseInt(byte, 16));
+}
+
+async function hashPortalPassword(password, salt, iterations) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const digest = await crypto.subtle.deriveBits({
+    name: "PBKDF2",
+    hash: "SHA-256",
+    salt,
+    iterations,
+  }, key, 256);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function hashSessionToken(token) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+function constantTimeEqual(left, right) {
+  if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
+  let difference = 0;
+  for (let i = 0; i < left.length; i++) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  return difference === 0;
+}
+
+function publicPortalUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    active: user.active,
+    createdAt: user.createdAt,
+  };
+}
+
+function getSessionToken(request) {
+  const cookies = request.headers.get("Cookie") || "";
+  const cookie = cookies.split(";").map((part) => part.trim())
+    .find((part) => part.startsWith(`${AUTH_SESSION_COOKIE}=`));
+  return cookie ? cookie.slice(AUTH_SESSION_COOKIE.length + 1) : "";
+}
+
+async function isAuthorized(request, env) {
+  const sessionToken = getSessionToken(request);
+  if (!sessionToken) return null;
+  const stub = getAdminStoreStub(env);
+  const response = await stub.fetch(new Request("https://internal/internal/auth/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionToken }),
+  }));
+  if (!response.ok) return null;
+  const { user } = await response.json();
+  return user || null;
 }
 
 function getAdminStoreStub(env) {
@@ -341,37 +672,158 @@ export default {
   // ===========================================================================
   async fetch(request, env) {
     const url = new URL(request.url);
-    const jsonHeaders = { "Content-Type": "application/json" };
+    const jsonHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 
-    // 1. Clinician Login Endpoint
+    if (url.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      const origin = request.headers.get("Origin");
+      if (origin && origin !== url.origin) {
+        return new Response(JSON.stringify({ error: "Cross-origin request rejected." }), {
+          status: 403,
+          headers: jsonHeaders,
+        });
+      }
+    }
+
+    // 1. Clinician Authentication and Staff Accounts
     if (url.pathname === "/api/login" && request.method === "POST") {
       try {
-        const { username, password } = await request.json();
-        if (
-          typeof username === "string" &&
-          username.trim().toLowerCase() === ADMIN_USER &&
-          password === ADMIN_PASS
-        ) {
-          const token = btoa(`${ADMIN_USER}:${ADMIN_PASS}`);
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              token,
-              user: { username: ADMIN_USER, displayName: "Linda Milewski, LCSW" },
-            }),
-            { headers: jsonHeaders },
-          );
+        const credentials = await request.json();
+        const stub = getAdminStoreStub(env);
+        const loginRes = await stub.fetch(new Request("https://internal/internal/auth/login", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({
+            username: credentials.username,
+            password: credentials.password,
+            bootstrapUsername: env.ADMIN_BOOTSTRAP_USERNAME,
+            bootstrapPassword: env.ADMIN_BOOTSTRAP_PASSWORD,
+            clientIp: request.headers.get("CF-Connecting-IP") || "unknown",
+          }),
+        }));
+        const result = await loginRes.json();
+        if (!loginRes.ok) {
+          return new Response(JSON.stringify({ error: result.error || "Invalid username or password." }), {
+            status: loginRes.status,
+            headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+          });
         }
         return new Response(
-          JSON.stringify({ ok: false, error: "Invalid username or password." }),
-          { status: 401, headers: jsonHeaders },
+          JSON.stringify({ ok: true, user: result.user }),
+          {
+            headers: {
+              ...jsonHeaders,
+              "Cache-Control": "no-store",
+              "Set-Cookie": `${AUTH_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
+            },
+          },
         );
       } catch {
         return new Response(
-          JSON.stringify({ ok: false, error: "Invalid request payload." }),
-          { status: 400, headers: jsonHeaders },
+          JSON.stringify({ error: "Invalid request payload." }),
+          { status: 400, headers: { ...jsonHeaders, "Cache-Control": "no-store" } },
         );
       }
+    }
+
+    if (url.pathname === "/api/session" && request.method === "GET") {
+      const user = await isAuthorized(request, env);
+      return new Response(JSON.stringify(user ? { user } : { error: "Unauthorized" }), {
+        status: user ? 200 : 401,
+        headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+      });
+    }
+
+    if (url.pathname === "/api/change-password" && request.method === "POST") {
+      const user = await isAuthorized(request, env);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+      }
+      try {
+        const body = await request.json();
+        const stub = getAdminStoreStub(env);
+        const resultRes = await stub.fetch(new Request("https://internal/internal/auth/change-password", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ ...body, sessionToken: getSessionToken(request) }),
+        }));
+        const result = await resultRes.json();
+        if (!resultRes.ok) {
+          return new Response(JSON.stringify({ error: result.error || "Could not change password." }), {
+            status: resultRes.status,
+            headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+          });
+        }
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: {
+            ...jsonHeaders,
+            "Cache-Control": "no-store",
+            "Set-Cookie": `${AUTH_SESSION_COOKIE}=${result.sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_SESSION_TTL_MS / 1000)}${url.protocol === "https:" ? "; Secure" : ""}`,
+          },
+        });
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid request payload." }), {
+          status: 400,
+          headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+        });
+      }
+    }
+
+    if (url.pathname === "/api/logout" && request.method === "POST") {
+      const sessionToken = getSessionToken(request);
+      const stub = getAdminStoreStub(env);
+      await stub.fetch(new Request("https://internal/internal/auth/logout", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({ sessionToken }),
+      }));
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: {
+          ...jsonHeaders,
+          "Cache-Control": "no-store",
+          "Set-Cookie": `${AUTH_SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${url.protocol === "https:" ? "; Secure" : ""}`,
+        },
+      });
+    }
+
+    if (url.pathname === "/api/users") {
+      const user = await isAuthorized(request, env);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      if (user.role !== "admin") {
+        return new Response(JSON.stringify({ error: "Administrator access required." }), {
+          status: 403,
+          headers: jsonHeaders,
+        });
+      }
+      if (!["GET", "POST", "PATCH", "DELETE"].includes(request.method)) {
+        return new Response(JSON.stringify({ error: "Method not allowed." }), {
+          status: 405,
+          headers: jsonHeaders,
+        });
+      }
+      const stub = getAdminStoreStub(env);
+      const internalUrl = new URL("/internal/auth/users" + url.search, request.url);
+      let body;
+      if (request.method === "POST" || request.method === "PATCH") {
+        body = await request.json();
+        body.sessionToken = getSessionToken(request);
+      } else if (request.method === "DELETE") {
+        body = { sessionToken: getSessionToken(request) };
+      } else {
+        return stub.fetch(new Request(internalUrl, {
+          method: "GET",
+          headers: { "X-Portal-Session": getSessionToken(request) },
+        }));
+      }
+      return stub.fetch(new Request(internalUrl, {
+        method: request.method,
+        headers: jsonHeaders,
+        body: request.method === "GET" ? undefined : JSON.stringify(body),
+      }));
     }
 
     // 2. One-Click Client Appointment Confirmation Link (GET /api/confirm-appointment)
@@ -492,7 +944,7 @@ export default {
 
     // 4. Protected Outbound Email Endpoint (Appointment Confirmation Emails & Custom Emails)
     if (url.pathname === "/api/send-email" && request.method === "POST") {
-      if (!isAuthorized(request)) {
+      if (!(await isAuthorized(request, env))) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: jsonHeaders,
@@ -629,7 +1081,7 @@ export default {
       url.pathname === "/api/hours" ||
       url.pathname === "/api/emails"
     ) {
-      if (!isAuthorized(request)) {
+      if (!(await isAuthorized(request, env))) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: jsonHeaders,

@@ -16,6 +16,10 @@
       }
     ]
   },
+  // Initial administrator credentials are Cloudflare Worker secrets, not source:
+  // npx wrangler secret put ADMIN_BOOTSTRAP_USERNAME
+  // npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
+  // The first successful login stores the account in the existing ChatRoom storage.
   "send_email": [
     {
       "name": "EMAIL",
@@ -38,5 +42,5 @@
   "vars": {
     "FORWARD_TO_EMAIL": "klucinaken@gmail.com",
     "SENDER_EMAIL": "lindasappointments@klutchplay.com"
-  },
+  }
 }
