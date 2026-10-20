@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Linda Milewski, LCSW | Compassionate Psychotherapy & Counseling</title>
+    <title>Linda Milewski, LCSW | Compassionate Psychotherapy & Telehealth</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter for clean UI & Playfair Display for warm editorial headings -->
@@ -12,6 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PeerJS for WebRTC Peer-to-Peer Video Sessions -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -66,6 +68,16 @@
             border-radius: 0.5rem;
             transition: all 0.2s ease;
         }
+        .mirror-video {
+            transform: scaleX(-1);
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.65; }
+            50% { transform: scale(1.35); opacity: 1; }
+        }
+        .breathe-circle {
+            animation: breathe 8s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="font-sans antialiased selection:bg-sage-200 selection:text-sage-900">
@@ -75,10 +87,14 @@
         <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
             <div class="flex items-center gap-2">
                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Currently accepting new clients for in-person &amp; telehealth sessions</span>
+                <span>Currently accepting new clients for in-person &amp; live telehealth video sessions</span>
             </div>
             <div class="flex items-center gap-4 text-sage-200">
-                <span>Referred by a friend? Mention their name for a complimentary intake call</span>
+                <a href="#telehealth" class="underline hover:text-white font-medium flex items-center gap-1">
+                    <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                    <span>Enter Video Waiting Room</span>
+                </a>
+                <span>•</span>
                 <a href="#contact" class="underline hover:text-white font-medium">Book Now &rarr;</a>
             </div>
         </div>
@@ -99,20 +115,27 @@
             </a>
 
             <!-- Desktop Navigation Links -->
-            <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-sage-800">
+            <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-sage-800">
                 <a href="#home" class="hover:text-sage-600 transition py-2">Home</a>
                 <a href="#services" class="hover:text-sage-600 transition py-2">Services &amp; Rates</a>
+                <a href="#telehealth" class="hover:text-sage-600 transition py-2 flex items-center gap-1.5 text-sage-900 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Video Session</span>
+                </a>
                 <a href="#about" class="hover:text-sage-600 transition py-2 flex items-center gap-1.5">
                     <span>About Me</span>
-                    <span class="text-[10px] bg-sage-100 text-sage-700 px-2 py-0.5 rounded-full font-semibold">Customizable</span>
                 </a>
                 <a href="#testimonials" class="hover:text-sage-600 transition py-2">Client Words</a>
                 <a href="#contact" class="hover:text-sage-600 transition py-2">Contact</a>
             </nav>
 
             <!-- Action Buttons -->
-            <div class="hidden md:flex items-center gap-3">
-                <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm hover:shadow transition flex items-center gap-2">
+            <div class="hidden md:flex items-center gap-2.5">
+                <a href="#telehealth" class="bg-sage-100 hover:bg-sage-200 text-sage-800 px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center gap-2">
+                    <i data-lucide="video" class="w-4 h-4 text-sage-700"></i>
+                    <span>Telehealth Room</span>
+                </a>
+                <a href="#contact" onclick="prefillConsultation()" class="bg-sage-600 hover:bg-sage-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm hover:shadow transition flex items-center gap-2">
                     <i data-lucide="calendar-heart" class="w-4 h-4"></i>
                     <span>Free 15-Min Consult</span>
                 </a>
@@ -125,9 +148,13 @@
         </div>
 
         <!-- Mobile Menu Dropdown -->
-        <div id="mobile-menu" class="hidden md:hidden bg-sand-50 border-b border-sand-200 px-4 pt-2 pb-6 space-y-3">
+        <div id="mobile-menu" class="hidden md:hidden bg-sand-50 border-b border-sand-200 px-4 pt-2 pb-6 space-y-2.5">
             <a href="#home" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Home</a>
             <a href="#services" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Services &amp; Rates</a>
+            <a href="#telehealth" class="mobile-nav-link flex items-center justify-between px-3 py-2.5 rounded-xl text-base font-semibold text-sage-900 bg-sage-100/70">
+                <span>Live Video Session Room</span>
+                <span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full">Telehealth</span>
+            </a>
             <a href="#about" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">About Me</a>
             <a href="#testimonials" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Client Words</a>
             <a href="#contact" class="mobile-nav-link block px-3 py-2.5 rounded-xl text-base font-medium text-sage-900 hover:bg-sage-50">Contact &amp; Email Form</a>
@@ -167,8 +194,9 @@
                                 <span>Book a Free 15-Min Consultation</span>
                                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
                             </a>
-                            <a href="#services" class="bg-white hover:bg-sand-100 text-sage-800 border border-sand-300 px-6 py-4 rounded-xl font-medium text-center transition flex items-center justify-center gap-2">
-                                <span>Explore Services</span>
+                            <a href="#telehealth" class="bg-white hover:bg-sage-50 text-sage-800 border border-sage-300 px-6 py-4 rounded-xl font-medium text-center transition flex items-center justify-center gap-2 shadow-sm">
+                                <i data-lucide="video" class="w-4 h-4 text-sage-600"></i>
+                                <span>Join Video Session</span>
                             </a>
                         </div>
 
@@ -178,14 +206,14 @@
                                 <i data-lucide="shield-check" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
                                 <div>
                                     <strong class="block text-sage-900 font-semibold">100% Confidential</strong>
-                                    <span>HIPAA-compliant private practice</span>
+                                    <span>HIPAA-aligned private practice</span>
                                 </div>
                             </div>
                             <div class="flex items-start gap-2.5">
                                 <i data-lucide="video" class="w-5 h-5 text-sage-600 shrink-0 mt-0.5"></i>
                                 <div>
-                                    <strong class="block text-sage-900 font-semibold">Flexible Format</strong>
-                                    <span>In-office &amp; secure video therapy</span>
+                                    <strong class="block text-sage-900 font-semibold">Built-In Telehealth</strong>
+                                    <span>Browser video chat—no downloads</span>
                                 </div>
                             </div>
                             <div class="flex items-start gap-2.5">
@@ -383,11 +411,309 @@
             </div>
         </section>
 
+        <!-- =================================================================
+             SECURE TELEHEALTH VIDEO SESSION ROOM SECTION
+             ================================================================= -->
+        <section id="telehealth" class="py-20 bg-sage-900 text-sand-50 border-b border-sage-800">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Section Header -->
+                <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sage-800 border border-sage-700 text-sage-200 text-xs font-medium mb-3">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>Encrypted Peer-to-Peer WebRTC Telehealth</span>
+                        </div>
+                        <h2 class="font-serif text-3xl sm:text-4xl text-white font-semibold">Virtual Therapy Waiting Room &amp; Video Chat</h2>
+                        <p class="text-sage-200 mt-2 text-sm sm:text-base max-w-2xl">
+                            Have an upcoming telehealth appointment with Linda Milewski, LCSW? Test your camera below and enter your session code to connect directly in your browser.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="copyRoomInviteLink()" class="bg-sage-800 hover:bg-sage-700 text-sage-100 border border-sage-600 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-2">
+                            <i data-lucide="link" class="w-4 h-4 text-sage-300"></i>
+                            <span id="copy-link-label">Copy Session Invite Link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Telehealth Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+                    <!-- Left Column: Pre-Call Check & Room Controls -->
+                    <div class="lg:col-span-4 bg-sage-800/70 border border-sage-700 rounded-3xl p-6 space-y-5 shadow-lg">
+                        <div class="flex items-center justify-between border-b border-sage-700/80 pb-4">
+                            <div>
+                                <h3 class="font-serif text-xl font-semibold text-white">Session Setup</h3>
+                                <p class="text-xs text-sage-300 mt-0.5">Enter your details to join the room</p>
+                            </div>
+                            <span id="connection-badge" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage-700 text-sage-200">
+                                Standby
+                            </span>
+                        </div>
+
+                        <!-- Participant Name -->
+                        <div>
+                            <label for="video-user-name" class="block text-xs font-semibold uppercase tracking-wider text-sage-200 mb-1.5">
+                                Your Display Name
+                            </label>
+                            <input 
+                                type="text" 
+                                id="video-user-name" 
+                                placeholder="e.g., Alex (or Linda Milewski, LCSW)"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white placeholder-sage-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            >
+                        </div>
+
+                        <!-- Room Code -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label for="video-room-code" class="block text-xs font-semibold uppercase tracking-wider text-sage-200">
+                                    Session Room Code
+                                </label>
+                                <button type="button" onclick="generateNewRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
+                                    Generate New Code
+                                </button>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="video-room-code" 
+                                value="LINDA-101"
+                                placeholder="e.g., LINDA-101"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-sage-900/90 border border-sage-600 text-white font-mono text-sm tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            >
+                            <p class="text-[11px] text-sage-300 mt-1">
+                                Both Linda and the client enter this same code to connect.
+                            </p>
+                        </div>
+
+                        <!-- Microphone Audio Level Check -->
+                        <div class="bg-sage-900/60 p-3.5 rounded-2xl border border-sage-700/80 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-sage-200 font-medium flex items-center gap-1.5">
+                                    <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    <span>Microphone Check</span>
+                                </span>
+                                <span id="mic-status-label" class="text-sage-400 text-[11px]">Camera off</span>
+                            </div>
+                            <div class="w-full h-2 bg-sage-800 rounded-full overflow-hidden">
+                                <div id="mic-level-bar" class="h-full bg-emerald-400 transition-all duration-75" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="space-y-2.5 pt-1">
+                            <button 
+                                id="btn-start-camera" 
+                                type="button" 
+                                onclick="startLocalMedia()" 
+                                class="w-full bg-sage-700 hover:bg-sage-600 text-white font-medium py-3 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 border border-sage-500"
+                            >
+                                <i data-lucide="camera" class="w-4 h-4"></i>
+                                <span id="start-camera-text">1. Test Camera &amp; Microphone</span>
+                            </button>
+
+                            <button 
+                                id="btn-join-room" 
+                                type="button" 
+                                onclick="joinTelehealthRoom()" 
+                                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-4 rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2"
+                            >
+                                <i data-lucide="video" class="w-4 h-4"></i>
+                                <span id="join-room-text">2. Join Video Session</span>
+                            </button>
+
+                            <button 
+                                id="btn-demo-call" 
+                                type="button" 
+                                onclick="toggleDemoSession()" 
+                                class="w-full bg-sage-900/80 hover:bg-sage-900 text-sage-200 hover:text-white py-2.5 px-4 rounded-xl text-xs font-medium transition border border-sage-700 flex items-center justify-center gap-1.5"
+                            >
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                <span id="demo-call-text">Preview Simulated Call (Solo Test)</span>
+                            </button>
+                        </div>
+
+                        <!-- Privacy Note -->
+                        <div class="pt-3 border-t border-sage-700/70 text-[11px] text-sage-300 space-y-1.5 leading-relaxed">
+                            <div class="flex items-start gap-2">
+                                <i data-lucide="shield" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+                                <span><strong>End-to-End Encrypted:</strong> Video and audio streams travel directly between participants via WebRTC and are never recorded or stored.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Video Stage, Controls & In-Call Chat -->
+                    <div class="lg:col-span-8 space-y-4">
+                        <div id="video-stage-container" class="relative bg-sage-950 rounded-3xl overflow-hidden border border-sage-700 shadow-2xl aspect-video flex flex-col justify-between">
+                            
+                            <!-- Top Overlay Bar: Room Info & Timer -->
+                            <div class="relative z-20 flex items-center justify-between px-5 py-3.5 bg-gradient-to-b from-black/70 via-black/30 to-transparent">
+                                <div class="flex items-center gap-2.5">
+                                    <span id="live-indicator-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                                    <span id="stage-room-title" class="text-xs sm:text-sm font-medium text-white tracking-wide">
+                                        Waiting Room • Linda Milewski, LCSW
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span id="call-timer" class="font-mono text-xs sm:text-sm bg-black/50 text-sand-100 px-3 py-1 rounded-lg border border-white/10">
+                                        00:00
+                                    </span>
+                                    <button type="button" onclick="toggleVideoFullscreen()" title="Toggle Fullscreen" class="p-2 rounded-lg bg-black/40 hover:bg-black/70 text-white transition">
+                                        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Remote Video Feed (Main Stage) -->
+                            <video 
+                                id="remote-video" 
+                                autoplay 
+                                playsinline 
+                                class="hidden absolute inset-0 w-full h-full object-cover z-0"
+                            ></video>
+
+                            <!-- Remote Participant Name Tag -->
+                            <div id="remote-name-badge" class="hidden absolute bottom-20 left-5 z-20 bg-black/60 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-white/15">
+                                Connected Participant
+                            </div>
+
+                            <!-- Waiting Room / Calming Placeholder Overlay (Visible when not yet connected to remote peer) -->
+                            <div id="waiting-room-overlay" class="relative z-10 flex-1 flex flex-col items-center justify-center text-center p-6 select-none">
+                                <!-- Breathing Exercise Circle -->
+                                <div class="relative flex items-center justify-center mb-5">
+                                    <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-sage-500/20 border border-sage-400/40 breathe-circle absolute"></div>
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sage-700/80 border border-sage-500 flex items-center justify-center shadow-inner">
+                                        <i data-lucide="sprout" class="w-8 h-8 text-emerald-300"></i>
+                                    </div>
+                                </div>
+                                <h4 id="waiting-room-heading" class="font-serif text-xl sm:text-2xl text-white font-medium">
+                                    Welcome to Linda’s Virtual Waiting Room
+                                </h4>
+                                <p id="waiting-room-subtext" class="text-xs sm:text-sm text-sage-300 max-w-md mt-2 leading-relaxed">
+                                    Click <strong>"Test Camera &amp; Microphone"</strong> or <strong>"Join Video Session"</strong> on the left. While waiting, follow the gentle breathing circle above (inhale 4s, exhale 4s).
+                                </p>
+                            </div>
+
+                            <!-- Local Video Picture-in-Picture (Self View) -->
+                            <div class="absolute bottom-20 right-4 sm:right-5 z-20 w-32 sm:w-44 aspect-video bg-sage-900 rounded-2xl overflow-hidden border-2 border-sage-500/80 shadow-xl">
+                                <video 
+                                    id="local-video" 
+                                    autoplay 
+                                    playsinline 
+                                    muted 
+                                    class="w-full h-full object-cover mirror-video hidden"
+                                ></video>
+                                <div id="local-video-placeholder" class="w-full h-full flex flex-col items-center justify-center bg-sage-800 text-sage-300 p-2 text-center">
+                                    <i data-lucide="user" class="w-6 h-6 mb-1 opacity-70"></i>
+                                    <span class="text-[10px] font-medium">Your Camera</span>
+                                </div>
+                                <span class="absolute bottom-1.5 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-medium">
+                                    You
+                                </span>
+                            </div>
+
+                            <!-- Bottom Call Control Bar -->
+                            <div class="relative z-20 px-4 py-3.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent flex items-center justify-center gap-2.5 sm:gap-4">
+                                
+                                <!-- Toggle Mic -->
+                                <button 
+                                    id="ctrl-mic-btn" 
+                                    type="button" 
+                                    onclick="toggleMicrophone()" 
+                                    title="Mute / Unmute Microphone"
+                                    class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition"
+                                >
+                                    <i data-lucide="mic" class="w-5 h-5"></i>
+                                </button>
+
+                                <!-- Toggle Camera -->
+                                <button 
+                                    id="ctrl-cam-btn" 
+                                    type="button" 
+                                    onclick="toggleCamera()" 
+                                    title="Turn Camera On / Off"
+                                    class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition"
+                                >
+                                    <i data-lucide="video" class="w-5 h-5"></i>
+                                </button>
+
+                                <!-- Share Screen -->
+                                <button 
+                                    id="ctrl-screen-btn" 
+                                    type="button" 
+                                    onclick="toggleScreenShare()" 
+                                    title="Share Screen / Worksheet"
+                                    class="w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition"
+                                >
+                                    <i data-lucide="monitor-up" class="w-5 h-5"></i>
+                                </button>
+
+                                <!-- Toggle In-Session Chat -->
+                                <button 
+                                    id="ctrl-chat-btn" 
+                                    type="button" 
+                                    onclick="toggleSessionChat()" 
+                                    title="Open Session Chat & Notes"
+                                    class="relative w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition"
+                                >
+                                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                                    <span id="chat-unread-dot" class="hidden absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                                </button>
+
+                                <!-- End Call -->
+                                <button 
+                                    id="ctrl-end-btn" 
+                                    type="button" 
+                                    onclick="endTelehealthSession()" 
+                                    title="End Video Session"
+                                    class="px-5 h-11 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition"
+                                >
+                                    <i data-lucide="phone-off" class="w-4 h-4"></i>
+                                    <span>End Session</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Collapsible In-Session Text Chat & Notes Drawer -->
+                        <div id="session-chat-drawer" class="hidden bg-sage-800/90 border border-sage-700 rounded-2xl p-4 space-y-3">
+                            <div class="flex items-center justify-between border-b border-sage-700 pb-2.5">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                                    <h4 class="text-xs font-semibold uppercase tracking-wider text-white">In-Session Chat &amp; Shared Notes</h4>
+                                </div>
+                                <button type="button" onclick="toggleSessionChat()" class="text-xs text-sage-300 hover:text-white">
+                                    Close
+                                </button>
+                            </div>
+                            <div id="session-chat-messages" class="h-36 overflow-y-auto space-y-2 pr-1 text-xs">
+                                <div class="bg-sage-900/70 text-sage-200 p-2.5 rounded-xl border border-sage-700/60">
+                                    <strong>Session Room Ready:</strong> You can use this space to share links, grounding exercises, or notes during your video session.
+                                </div>
+                            </div>
+                            <form id="session-chat-form" onsubmit="sendSessionChatMessage(event)" class="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    id="session-chat-input" 
+                                    placeholder="Type a message or paste a link for the session..."
+                                    class="flex-1 px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white placeholder-sage-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                >
+                                <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-semibold transition">
+                                    Send
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
         <!-- ABOUT ME SECTION (WITH EASY PLACEHOLDERS & INTERACTIVE BIO CUSTOMIZER) -->
         <section id="about" class="py-20 bg-sand-50">
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 
-                <!-- Owner Helper Toolbar: Allows the therapist/owner to test editing their bio live on the page -->
+                <!-- Owner Helper Toolbar -->
                 <div class="mb-10 bg-sage-50 border border-sage-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div class="flex items-start gap-3">
                         <div class="p-2 rounded-lg bg-sage-600 text-white mt-0.5">
@@ -412,9 +738,6 @@
                     <!-- Left Column: Portrait Placeholder & Credentials Card -->
                     <div class="lg:col-span-5 space-y-6">
                         <div class="bg-white p-4 rounded-3xl shadow-md border border-sand-200 relative group">
-                            <!-- =================================================================
-                                 PHOTO PLACEHOLDER: Replace the `src` URL below with your own headshot
-                                 ================================================================= -->
                             <img 
                                 id="about-photo"
                                 src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80" 
@@ -432,15 +755,12 @@
                             </div>
                         </div>
 
-                        <!-- Credentials & Quick Facts Box (Easy to edit) -->
+                        <!-- Credentials & Quick Facts Box -->
                         <div class="bg-white p-6 rounded-2xl border border-sand-200 shadow-sm space-y-4">
                             <h4 class="font-serif text-lg font-semibold text-sage-900 flex items-center gap-2">
                                 <i data-lucide="award" class="w-5 h-5 text-sage-600"></i>
                                 <span>Credentials &amp; Training</span>
                             </h4>
-                            <!-- =================================================================
-                                 CREDENTIALS PLACEHOLDER: Replace list items with your degrees/licenses
-                                 ================================================================= -->
                             <ul id="about-credentials" class="space-y-2.5 text-sm text-sage-800" data-editable="true">
                                 <li class="flex items-start gap-2.5">
                                     <span class="text-sage-600 font-bold">•</span>
@@ -469,16 +789,10 @@
                             <span class="w-8 h-px bg-sage-400"></span>
                         </div>
 
-                        <!-- =================================================================
-                             ABOUT ME HEADLINE PLACEHOLDER
-                             ================================================================= -->
                         <h2 id="about-headline" class="font-serif text-3xl sm:text-4xl text-sage-900 font-semibold leading-snug" data-editable="true">
                             Hi, I’m Linda. I believe therapy works best when it feels like a genuine human conversation.
                         </h2>
 
-                        <!-- =================================================================
-                             ABOUT ME BIO BODY PLACEHOLDER: Paste your paragraphs here later!
-                             ================================================================= -->
                         <div id="about-bio-body" class="space-y-4 text-sage-800 leading-relaxed text-base" data-editable="true">
                             <p>
                                 <strong>[Paragraph 1: Your Warm Introduction &amp; Why You Became a Therapist]</strong> — Welcome! This section is ready for your personal story. You might share what drew you to clinical social work and counseling, who you love working with, and how you create a safe environment for clients reaching out for the first time.
@@ -600,7 +914,6 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Phone &amp; Confidential Voicemail</span>
-                                    <!-- EDITABLE: Replace Phone Number -->
                                     <p id="contact-phone" class="text-base font-semibold text-sage-900 mt-0.5">(555) 234-8910</p>
                                     <span class="text-xs text-sage-600">Call or text for scheduling inquiries</span>
                                 </div>
@@ -616,7 +929,6 @@
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Direct Email</span>
-                                    <!-- EDITABLE: Replace Email Address -->
                                     <p id="contact-email" class="text-sm sm:text-base font-semibold text-sage-900 mt-0.5 truncate">lmilewski@something.com</p>
                                     <span class="text-xs text-sage-600">Responses within 24 business hours</span>
                                 </div>
@@ -632,12 +944,11 @@
                                 </div>
                                 <div>
                                     <span class="text-xs font-semibold uppercase tracking-wider text-sage-600 block">Office Location &amp; Telehealth</span>
-                                    <!-- EDITABLE: Replace Office Address -->
                                     <p class="text-sm font-semibold text-sage-900 mt-0.5">420 Willow Creek Way, Suite 204</p>
                                     <p class="text-xs text-sage-700">Oakridge, ST 94010 • Free private parking</p>
-                                    <span class="inline-block mt-1.5 text-[11px] font-medium bg-sage-100 text-sage-800 px-2.5 py-0.5 rounded-full">
-                                        In-Person &amp; Statewide Telehealth
-                                    </span>
+                                    <a href="#telehealth" class="inline-block mt-1.5 text-[11px] font-medium bg-sage-100 hover:bg-sage-200 text-sage-800 px-2.5 py-0.5 rounded-full transition">
+                                        In-Person &amp; Live Browser Telehealth &rarr;
+                                    </a>
                                 </div>
                             </div>
 
@@ -664,7 +975,7 @@
                             </div>
                         </div>
 
-                        <!-- Copy Notification Toast (Hidden by default) -->
+                        <!-- Copy Notification Toast -->
                         <div id="copy-toast" class="hidden bg-sage-800 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg flex items-center justify-between">
                             <span id="copy-toast-text">Copied to clipboard!</span>
                             <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-300"></i>
@@ -774,7 +1085,7 @@
                                         </select>
                                     </div>
 
-                                    <!-- Referral Source (Tailored for Word of Mouth & Ads!) -->
+                                    <!-- Referral Source -->
                                     <div>
                                         <label for="referral-source" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-2">
                                             How Did You Hear About Me?
@@ -813,7 +1124,7 @@
                                     </p>
                                 </div>
 
-                                <!-- Form Error Banner (Hidden unless network/Formspree error occurs) -->
+                                <!-- Form Error Banner -->
                                 <div id="form-error-box" class="hidden bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm rounded-xl p-4">
                                     There was an issue sending your message through the form. Please try again or click the direct email link below.
                                 </div>
@@ -888,6 +1199,7 @@
                     <ul class="space-y-1.5">
                         <li><a href="#home" class="hover:text-white transition">Home</a></li>
                         <li><a href="#services" class="hover:text-white transition">Services &amp; Rates</a></li>
+                        <li><a href="#telehealth" class="hover:text-white transition">Telehealth Video Room</a></li>
                         <li><a href="#about" class="hover:text-white transition">About Me</a></li>
                         <li><a href="#contact" class="hover:text-white transition">Contact &amp; Email Form</a></li>
                     </ul>
@@ -910,12 +1222,28 @@
 
     <!-- Interactive JavaScript -->
     <script>
-        // Initialize Lucide icons on load
+        // Initialize Lucide icons & URL room parameter on load
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) {
                 lucide.createIcons();
             }
             document.getElementById('current-year').textContent = new Date().getFullYear();
+
+            // Check if a session room code was passed in the URL (?room=XYZ)
+            const params = new URLSearchParams(window.location.search);
+            const roomParam = params.get('room');
+            if (roomParam) {
+                const roomInput = document.getElementById('video-room-code');
+                if (roomInput) {
+                    roomInput.value = roomParam.toUpperCase();
+                }
+                const telehealthSection = document.getElementById('telehealth');
+                if (telehealthSection) {
+                    setTimeout(() => {
+                        telehealthSection.scrollIntoView({ behavior: 'smooth' });
+                    }, 300);
+                }
+            }
         });
 
         // Mobile Navigation Toggle
@@ -956,7 +1284,7 @@
             }
         }
 
-        // Helper: Copy Phone or Email to Clipboard (iFrame safe using execCommand)
+        // Helper: Copy Phone or Email to Clipboard
         function copyContactText(textToCopy, label) {
             const tempInput = document.createElement('textarea');
             tempInput.value = textToCopy;
@@ -981,7 +1309,518 @@
             }, 3500);
         }
 
-        // Interactive "About Me" Live Bio Customizer Mode
+        // =====================================================================
+        // TELEHEALTH VIDEO CHAT FUNCTIONALITY (WebRTC + PeerJS + Hardware Check)
+        // =====================================================================
+        let localStream = null;
+        let screenStream = null;
+        let peerInstance = null;
+        let currentCall = null;
+        let dataConnection = null;
+        let isMicMuted = false;
+        let isCamOff = false;
+        let isScreenSharing = false;
+        let isDemoMode = false;
+        let callTimerInterval = null;
+        let callSeconds = 0;
+        let audioContext = null;
+        let micAnalyser = null;
+        let micAnimFrame = null;
+
+        // Start Local Camera & Microphone
+        async function startLocalMedia() {
+            const startBtnText = document.getElementById('start-camera-text');
+            const localVideo = document.getElementById('local-video');
+            const placeholder = document.getElementById('local-video-placeholder');
+            const micLabel = document.getElementById('mic-status-label');
+
+            try {
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                }
+
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true
+                });
+
+                localVideo.srcObject = localStream;
+                localVideo.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+
+                isMicMuted = false;
+                isCamOff = false;
+                updateControlButtonsUI();
+
+                startBtnText.textContent = "Camera & Mic Active ✓";
+                micLabel.textContent = "Listening...";
+                setupMicMeter(localStream);
+                updateConnectionBadge("Camera Ready", "bg-emerald-800 text-emerald-100");
+                return true;
+            } catch (err) {
+                console.warn("Camera/Mic access issue:", err);
+                micLabel.textContent = "Permission denied or no camera found";
+                startBtnText.textContent = "Retry Camera & Mic";
+                alert("Could not access camera/microphone. Please allow browser permissions or use 'Preview Simulated Call' to test the interface.");
+                return false;
+            }
+        }
+
+        // Live Microphone Level Visualizer
+        function setupMicMeter(stream) {
+            try {
+                if (micAnimFrame) cancelAnimationFrame(micAnimFrame);
+                if (audioContext) audioContext.close();
+
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioCtx();
+                const source = audioContext.createMediaStreamSource(stream);
+                micAnalyser = audioContext.createAnalyser();
+                micAnalyser.fftSize = 256;
+                source.connect(micAnalyser);
+
+                const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+                const levelBar = document.getElementById('mic-level-bar');
+
+                function updateMeter() {
+                    if (!localStream || isMicMuted) {
+                        levelBar.style.width = '0%';
+                    } else {
+                        micAnalyser.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) {
+                            sum += dataArray[i];
+                        }
+                        const avg = sum / dataArray.length;
+                        const pct = Math.min(100, Math.round((avg / 90) * 100));
+                        levelBar.style.width = pct + '%';
+                    }
+                    micAnimFrame = requestAnimationFrame(updateMeter);
+                }
+                updateMeter();
+            } catch (e) {
+                // Ignore AudioContext restrictions if any
+            }
+        }
+
+        // Join Peer-to-Peer WebRTC Room by Room Code
+        async function joinTelehealthRoom() {
+            const roomCodeRaw = document.getElementById('video-room-code').value.trim() || 'LINDA-101';
+            const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const userName = document.getElementById('video-user-name').value.trim() || 'Client';
+
+            if (!localStream) {
+                const ok = await startLocalMedia();
+                if (!ok) return;
+            }
+
+            if (peerInstance) {
+                peerInstance.destroy();
+            }
+
+            const hostPeerId = `lmilewski-lcsw-${cleanCode}-host`;
+            const joinBtnText = document.getElementById('join-room-text');
+            joinBtnText.textContent = "Connecting to Room...";
+            updateConnectionBadge("Connecting...", "bg-amber-700 text-amber-100");
+
+            document.getElementById('stage-room-title').textContent = `Room: ${roomCodeRaw.toUpperCase()} • ${userName}`;
+            document.getElementById('waiting-room-heading').textContent = `Waiting in Room ${roomCodeRaw.toUpperCase()}...`;
+            document.getElementById('waiting-room-subtext').innerHTML = `Your camera and microphone are ready. As soon as the other participant enters code <strong>${escapeHtml(roomCodeRaw.toUpperCase())}</strong> and clicks Join, your video session will begin automatically.`;
+
+            // First try registering as the Room Host
+            peerInstance = new Peer(hostPeerId);
+
+            peerInstance.on('open', () => {
+                joinBtnText.textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
+                updateConnectionBadge("Waiting for Participant", "bg-emerald-700 text-emerald-100");
+                appendChatSystemMessage(`Joined room ${roomCodeRaw.toUpperCase()}. Waiting for the other participant...`);
+            });
+
+            // Receive incoming video call from second participant
+            peerInstance.on('call', (call) => {
+                currentCall = call;
+                call.answer(localStream);
+                handleActiveCall(call);
+            });
+
+            // Receive incoming text chat connection
+            peerInstance.on('connection', (conn) => {
+                dataConnection = conn;
+                setupDataChannel(conn);
+            });
+
+            // If Host ID is already taken, join as Guest and call the Host immediately
+            peerInstance.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    connectAsGuestToHost(hostPeerId, roomCodeRaw.toUpperCase(), userName);
+                } else {
+                    console.warn("PeerJS notice:", err);
+                    updateConnectionBadge("Ready in Waiting Room", "bg-sage-700 text-sage-200");
+                    joinBtnText.textContent = "Join Video Session";
+                }
+            });
+        }
+
+        function connectAsGuestToHost(hostPeerId, displayCode, userName) {
+            peerInstance = new Peer();
+
+            peerInstance.on('open', () => {
+                document.getElementById('join-room-text').textContent = `Connected (${displayCode})`;
+                const call = peerInstance.call(hostPeerId, localStream, {
+                    metadata: { name: userName }
+                });
+                currentCall = call;
+                handleActiveCall(call);
+
+                const conn = peerInstance.connect(hostPeerId, {
+                    metadata: { name: userName }
+                });
+                dataConnection = conn;
+                setupDataChannel(conn);
+            });
+        }
+
+        function handleActiveCall(call) {
+            call.on('stream', (remoteMediaStream) => {
+                const remoteVideo = document.getElementById('remote-video');
+                const waitingOverlay = document.getElementById('waiting-room-overlay');
+                const remoteBadge = document.getElementById('remote-name-badge');
+
+                remoteVideo.srcObject = remoteMediaStream;
+                remoteVideo.classList.remove('hidden');
+                waitingOverlay.classList.add('hidden');
+                remoteBadge.classList.remove('hidden');
+                remoteBadge.textContent = (call.metadata && call.metadata.name) ? call.metadata.name : "Connected Participant";
+
+                document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                updateConnectionBadge("Live Encrypted Call", "bg-emerald-600 text-white");
+                startCallTimer();
+                appendChatSystemMessage("Video & audio session connected.");
+            });
+
+            call.on('close', () => {
+                resetRemoteVideoStage();
+            });
+        }
+
+        function setupDataChannel(conn) {
+            conn.on('open', () => {
+                const myName = document.getElementById('video-user-name').value.trim() || 'Participant';
+                conn.send({ type: 'intro', name: myName });
+            });
+            conn.on('data', (data) => {
+                if (data && data.type === 'intro') {
+                    const remoteBadge = document.getElementById('remote-name-badge');
+                    remoteBadge.textContent = data.name;
+                    remoteBadge.classList.remove('hidden');
+                } else if (data && data.type === 'chat') {
+                    appendChatMessage(data.sender, data.text, false);
+                    const drawer = document.getElementById('session-chat-drawer');
+                    if (drawer.classList.contains('hidden')) {
+                        document.getElementById('chat-unread-dot').classList.remove('hidden');
+                    }
+                }
+            });
+        }
+
+        // Toggle Microphone Mute
+        function toggleMicrophone() {
+            if (!localStream) {
+                startLocalMedia();
+                return;
+            }
+            isMicMuted = !isMicMuted;
+            localStream.getAudioTracks().forEach(track => {
+                track.enabled = !isMicMuted;
+            });
+            document.getElementById('mic-status-label').textContent = isMicMuted ? "Muted" : "Listening...";
+            updateControlButtonsUI();
+        }
+
+        // Toggle Camera On/Off
+        function toggleCamera() {
+            if (!localStream) {
+                startLocalMedia();
+                return;
+            }
+            isCamOff = !isCamOff;
+            localStream.getVideoTracks().forEach(track => {
+                track.enabled = !isCamOff;
+            });
+            const localVideo = document.getElementById('local-video');
+            const placeholder = document.getElementById('local-video-placeholder');
+            if (isCamOff) {
+                localVideo.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            } else {
+                localVideo.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            }
+            updateControlButtonsUI();
+        }
+
+        // Toggle Screen Share
+        async function toggleScreenShare() {
+            if (isScreenSharing) {
+                stopScreenShare();
+                return;
+            }
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                const screenTrack = screenStream.getVideoTracks()[0];
+
+                // Show screen share in local preview
+                const localVideo = document.getElementById('local-video');
+                localVideo.srcObject = screenStream;
+                localVideo.classList.remove('mirror-video', 'hidden');
+                document.getElementById('local-video-placeholder').classList.add('hidden');
+
+                // Replace outgoing track if in a PeerJS call
+                if (currentCall && currentCall.peerConnection) {
+                    const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(screenTrack);
+                }
+
+                isScreenSharing = true;
+                updateControlButtonsUI();
+
+                screenTrack.onended = () => {
+                    stopScreenShare();
+                };
+            } catch (err) {
+                // User cancelled screen share dialog
+            }
+        }
+
+        function stopScreenShare() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
+            if (localStream) {
+                const localVideo = document.getElementById('local-video');
+                localVideo.srcObject = localStream;
+                localVideo.classList.add('mirror-video');
+
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (currentCall && currentCall.peerConnection && videoTrack) {
+                    const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(videoTrack);
+                }
+            }
+            isScreenSharing = false;
+            updateControlButtonsUI();
+        }
+
+        // Solo Demo / Preview Mode (Simulates a connected session so owner can test the UI)
+        async function toggleDemoSession() {
+            const remoteVideo = document.getElementById('remote-video');
+            const waitingOverlay = document.getElementById('waiting-room-overlay');
+            const remoteBadge = document.getElementById('remote-name-badge');
+            const demoBtnText = document.getElementById('demo-call-text');
+
+            if (isDemoMode) {
+                isDemoMode = false;
+                resetRemoteVideoStage();
+                demoBtnText.textContent = "Preview Simulated Call (Solo Test)";
+                return;
+            }
+
+            if (!localStream) {
+                await startLocalMedia();
+            }
+
+            isDemoMode = true;
+            demoBtnText.textContent = "Exit Simulated Call Preview";
+
+            if (localStream) {
+                remoteVideo.srcObject = localStream;
+                remoteVideo.classList.remove('hidden');
+            }
+            waitingOverlay.classList.add('hidden');
+            remoteBadge.textContent = "Linda Milewski, LCSW (Simulated Preview)";
+            remoteBadge.classList.remove('hidden');
+            document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+            updateConnectionBadge("Preview Mode Active", "bg-emerald-600 text-white");
+            startCallTimer();
+            appendChatMessage("Linda Milewski, LCSW", "Hi! Welcome to our telehealth session. Can you hear and see me clearly?", false);
+        }
+
+        // End Telehealth Session
+        function endTelehealthSession() {
+            if (currentCall) {
+                currentCall.close();
+                currentCall = null;
+            }
+            if (peerInstance) {
+                peerInstance.destroy();
+                peerInstance = null;
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            isDemoMode = false;
+            isMicMuted = false;
+            isCamOff = false;
+            isScreenSharing = false;
+
+            document.getElementById('local-video').classList.add('hidden');
+            document.getElementById('local-video-placeholder').classList.remove('hidden');
+            document.getElementById('start-camera-text').textContent = "1. Test Camera & Microphone";
+            document.getElementById('join-room-text').textContent = "2. Join Video Session";
+            document.getElementById('demo-call-text').textContent = "Preview Simulated Call (Solo Test)";
+            document.getElementById('mic-status-label').textContent = "Camera off";
+            document.getElementById('mic-level-bar').style.width = "0%";
+
+            resetRemoteVideoStage();
+            updateControlButtonsUI();
+            updateConnectionBadge("Session Ended", "bg-sage-700 text-sage-200");
+        }
+
+        function resetRemoteVideoStage() {
+            const remoteVideo = document.getElementById('remote-video');
+            remoteVideo.srcObject = null;
+            remoteVideo.classList.add('hidden');
+            document.getElementById('remote-name-badge').classList.add('hidden');
+            document.getElementById('waiting-room-overlay').classList.remove('hidden');
+            document.getElementById('waiting-room-heading').textContent = "Welcome to Linda’s Virtual Waiting Room";
+            document.getElementById('live-indicator-dot').className = "w-2.5 h-2.5 rounded-full bg-amber-400";
+            stopCallTimer();
+        }
+
+        function updateControlButtonsUI() {
+            const micBtn = document.getElementById('ctrl-mic-btn');
+            const camBtn = document.getElementById('ctrl-cam-btn');
+            const screenBtn = document.getElementById('ctrl-screen-btn');
+
+            if (isMicMuted) {
+                micBtn.className = "w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center border border-rose-400 transition";
+                micBtn.innerHTML = '<i data-lucide="mic-off" class="w-5 h-5"></i>';
+            } else {
+                micBtn.className = "w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition";
+                micBtn.innerHTML = '<i data-lucide="mic" class="w-5 h-5"></i>';
+            }
+
+            if (isCamOff) {
+                camBtn.className = "w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center border border-rose-400 transition";
+                camBtn.innerHTML = '<i data-lucide="video-off" class="w-5 h-5"></i>';
+            } else {
+                camBtn.className = "w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition";
+                camBtn.innerHTML = '<i data-lucide="video" class="w-5 h-5"></i>';
+            }
+
+            if (isScreenSharing) {
+                screenBtn.className = "w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center border border-emerald-400 transition";
+            } else {
+                screenBtn.className = "w-11 h-11 rounded-2xl bg-sage-800/90 hover:bg-sage-700 text-white flex items-center justify-center border border-white/15 transition";
+            }
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function updateConnectionBadge(text, classes) {
+            const badge = document.getElementById('connection-badge');
+            badge.textContent = text;
+            badge.className = `text-[11px] font-semibold px-2.5 py-1 rounded-full ${classes}`;
+        }
+
+        function startCallTimer() {
+            stopCallTimer();
+            callSeconds = 0;
+            const timerEl = document.getElementById('call-timer');
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                const secs = String(callSeconds % 60).padStart(2, '0');
+                timerEl.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopCallTimer() {
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            document.getElementById('call-timer').textContent = "00:00";
+        }
+
+        function generateNewRoomCode() {
+            const randomNum = Math.floor(100 + Math.random() * 900);
+            document.getElementById('video-room-code').value = `LINDA-${randomNum}`;
+        }
+
+        function copyRoomInviteLink() {
+            const code = document.getElementById('video-room-code').value.trim() || 'LINDA-101';
+            const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(code)}#telehealth`;
+            copyContactText(inviteUrl, 'Telehealth Invite Link');
+            const label = document.getElementById('copy-link-label');
+            label.textContent = `Copied (${code})!`;
+            setTimeout(() => {
+                label.textContent = "Copy Session Invite Link";
+            }, 3000);
+        }
+
+        function toggleVideoFullscreen() {
+            const stage = document.getElementById('video-stage-container');
+            if (!document.fullscreenElement) {
+                if (stage.requestFullscreen) stage.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        // In-Session Text Chat
+        function toggleSessionChat() {
+            const drawer = document.getElementById('session-chat-drawer');
+            drawer.classList.toggle('hidden');
+            document.getElementById('chat-unread-dot').classList.add('hidden');
+            if (!drawer.classList.contains('hidden')) {
+                document.getElementById('session-chat-input').focus();
+            }
+        }
+
+        function sendSessionChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('session-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const sender = document.getElementById('video-user-name').value.trim() || 'You';
+            appendChatMessage(sender, text, true);
+
+            if (dataConnection && dataConnection.open) {
+                dataConnection.send({ type: 'chat', sender: sender, text: text });
+            }
+            input.value = '';
+        }
+
+        function appendChatMessage(sender, text, isSelf) {
+            const container = document.getElementById('session-chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = isSelf
+                ? "bg-emerald-900/60 text-emerald-50 p-2.5 rounded-xl border border-emerald-700/60 ml-6"
+                : "bg-sage-900/90 text-sand-100 p-2.5 rounded-xl border border-sage-700 mr-6";
+            msgDiv.innerHTML = `<span class="font-semibold text-emerald-300 block text-[10px]">${escapeHtml(sender)}</span><span>${escapeHtml(text)}</span>`;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendChatSystemMessage(text) {
+            const container = document.getElementById('session-chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "text-[11px] text-sage-300 italic px-2 py-1";
+            msgDiv.textContent = text;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // =====================================================================
+        // INTERACTIVE "ABOUT ME" LIVE BIO CUSTOMIZER
+        // =====================================================================
         let isBioEditMode = false;
         function toggleBioEditMode() {
             isBioEditMode = !isBioEditMode;
@@ -1007,7 +1846,6 @@
                 btnLabel.textContent = "Customize Bio Text";
                 toggleBtn.classList.add('bg-white', 'text-sage-800');
                 toggleBtn.classList.remove('bg-sage-600', 'text-white');
-                // Sync navbar name if the user edited their name in the About section
                 const editedName = document.getElementById('about-name').textContent.trim();
                 if (editedName) {
                     document.getElementById('nav-therapist-name').textContent = editedName.includes(',') ? editedName : editedName + ', LCSW';
@@ -1015,7 +1853,9 @@
             }
         }
 
-        // Contact Form Validation & Formspree Submission Handler
+        // =====================================================================
+        // CONTACT FORM VALIDATION & FORMSPREE SUBMISSION HANDLER
+        // =====================================================================
         const FORMSPREE_ENDPOINT = "https://formspree.io/f/xgaobpow";
         const contactForm = document.getElementById('email-contact-form');
         let lastSubmittedData = null;
@@ -1038,7 +1878,6 @@
             const submitBtn = document.getElementById('submit-btn');
             const submitBtnText = document.getElementById('submit-btn-text');
 
-            // Reset errors
             errName.classList.add('hidden');
             errEmail.classList.add('hidden');
             errMessage.classList.add('hidden');
@@ -1064,7 +1903,6 @@
 
             if (!isValid) return;
 
-            // Save data for mailto fallback or summary
             lastSubmittedData = {
                 name: nameInput.value.trim(),
                 email: emailInput.value.trim(),
@@ -1075,7 +1913,6 @@
                 message: messageInput.value.trim()
             };
 
-            // Disable button & show sending state
             submitBtn.disabled = true;
             submitBtnText.textContent = "Sending...";
 
@@ -1119,7 +1956,6 @@
             document.getElementById('form-error-box').classList.add('hidden');
         }
 
-        // Opens the user's default email client pre-populated with the form fields
         function openDefaultMailClient() {
             const therapistEmail = document.getElementById('contact-email').textContent.trim();
             const name = lastSubmittedData ? lastSubmittedData.name : (document.getElementById('client-name').value.trim() || 'Prospective Client');
@@ -1141,7 +1977,7 @@
         }
 
         function escapeHtml(str) {
-            return str.replace(/[&<>"']/g, function(m) {
+            return String(str).replace(/[&<>"']/g, function(m) {
                 return ({
                     '&': '&amp;',
                     '<': '&lt;',
