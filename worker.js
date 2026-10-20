@@ -188,7 +188,7 @@ export class ChatRoom extends DurableObject {
         timestamp: new Date().toISOString(),
         from: fromEmail || (matchedAppt ? matchedAppt.clientEmail || matchedAppt.clientName : "Client"),
         to: "Practice Inbox",
-        subject: rawSubject || `Appointment ${status \vert{}\vert{} "Confirmed"} (${matchedAppt ? matchedAppt.roomCode : "Link"})`,
+        subject: rawSubject || `Appointment ${status || "Confirmed"} (${matchedAppt ? matchedAppt.roomCode : "Link"})`,
         body: rawText || `Client ${status === "Reschedule Requested" ? "requested to reschedule" : "confirmed"} appointment via ${method || "Email"}.`,
         matchedAppointmentId: matchedAppt ? matchedAppt.id : null,
         matchedClientName: matchedAppt ? matchedAppt.clientName : null,
@@ -403,7 +403,7 @@ export default {
         const { name, email, phone, preferred_reply_method, service_interest, referral_source, message } = body;
         const stub = getAdminStoreStub(env);
 
-        const subject = `Website Inquiry: ${service_interest \vert{}\vert{} "Consultation"} - ${name}`;
+        const subject = `Website Inquiry: ${service_interest || "Consultation"} - ${name}`;
         const textBody = `New Website Contact Inquiry:\nName: ${name}\nEmail: ${email}\nPhone:${phone || "Not provided"}\nPreferred Reply: ${preferred_reply_method}\nService:${service_interest}\nReferral: ${referral_source}\n\nMessage:\n${message}`;
 
         // Save to Linda's Portal Inbox

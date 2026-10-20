@@ -34,5 +34,9 @@
       "invocation_logs": true,
       "persist": true
     }
-  }
+  },
+  "vars": {
+    "FORWARD_TO_EMAIL": "klucinaken@gmail.com",
+    "SENDER_EMAIL": "lindasappointments@klutchplay.com"
+  },
 }
