@@ -409,9 +409,6 @@
                                 <label for="video-room-code" class="block text-xs font-semibold uppercase tracking-wider text-sage-200">
                                     Session Room Code <span class="text-emerald-400">*</span>
                                 </label>
-                                <button type="button" onclick="generateNewRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
-                                    Generate New Code
-                                </button>
                             </div>
                             <input 
                                 type="text" 
@@ -839,8 +836,18 @@
                 appendChatMessage(sender, text, false);
             };
 
-            await signalingClient.connect(cleanCode, localStream, userName);
-            document.getElementById('join-room-text').textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
+            try {
+                await signalingClient.connect(cleanCode, localStream, userName);
+                document.getElementById('join-room-text').textContent = `In Room (${roomCodeRaw.toUpperCase()})`;
+            } catch (error) {
+                signalingClient.disconnect();
+                signalingClient = null;
+                endTelehealthSession();
+                const roomError = document.getElementById('err-room-code');
+                roomError.textContent = 'Could not connect. Check that this code matches an active appointment, then try again.';
+                roomError.classList.remove('hidden');
+                document.getElementById('join-room-text').textContent = '2. Join Video Session';
+            }
         }
 
         function toggleMicrophone() {
@@ -896,10 +903,6 @@
         function stopCallTimer() {
             if (callTimerInterval) clearInterval(callTimerInterval);
             document.getElementById('call-timer').textContent = "00:00";
-        }
-
-        function generateNewRoomCode() {
-            document.getElementById('video-room-code').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
         }
 
         function copyRoomInviteLink() {

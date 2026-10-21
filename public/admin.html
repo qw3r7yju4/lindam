@@ -389,7 +389,7 @@
                             </div>
                             <h2 class="font-serif text-2xl sm:text-3xl text-white font-semibold">Linda’s Backend Video Session Room</h2>
                             <p class="text-xs sm:text-sm text-sage-300 mt-1">
-                                Connect with clients waiting in the public room. Elapsed video chat time is automatically logged to your Hours Tracker when you end the session.
+                                Join scheduled client sessions only. Room codes must match an active appointment; elapsed video chat time is automatically logged when you end the session.
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2.5">
@@ -397,6 +397,16 @@
                                 <i data-lucide="link" class="w-4 h-4 text-emerald-400"></i>
                                 <span id="portal-copy-invite-label">Copy Client Invite Link</span>
                             </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 rounded-2xl border border-sage-700 bg-sage-800/70 p-5">
+                        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                            <h3 class="font-serif text-xl font-semibold text-white">Upcoming Chats</h3>
+                            <p class="text-xs text-sage-300">Scheduled appointment name and time · Eastern Time</p>
+                        </div>
+                        <div id="video-upcoming-list" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                            <p class="text-sm text-sage-300">Loading upcoming appointments…</p>
                         </div>
                     </div>
 
@@ -416,7 +426,7 @@
                                     Load From Scheduled Appointment
                                 </label>
                                 <select id="portal-appt-select" onchange="loadAppointmentIntoStudio(this.value)" class="w-full px-3 py-2.5 rounded-xl bg-sage-900 border border-sage-600 text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                                    <option value="">-- Select Appointment or Enter Custom Below --</option>
+                                    <option value="">-- Select Upcoming Appointment --</option>
                                 </select>
                             </div>
 
@@ -437,15 +447,13 @@
                                     <label for="portal-room-code" class="block text-xs font-semibold text-sage-200">
                                         Session Room Code <span class="text-emerald-400">*</span>
                                     </label>
-                                    <button type="button" onclick="generatePortalRoomCode()" class="text-[11px] text-emerald-300 hover:underline">
-                                        Generate Code
-                                    </button>
                                 </div>
                                 <input
                                     type="text"
                                     id="portal-room-code"
-                                    placeholder="e.g., LINDA-402"
-                                    class="w-full px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white font-mono text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                    placeholder="Select an appointment above"
+                                    readonly
+                                    class="w-full px-3.5 py-2 rounded-xl bg-sage-900 border border-sage-600 text-white font-mono text-sm uppercase tracking-wider"
                                 >
                             </div>
 
@@ -518,7 +526,7 @@
                                         Clinician Video Studio Ready
                                     </h4>
                                     <p id="portal-waiting-sub" class="text-xs sm:text-sm text-sage-300 max-w-md mt-1.5">
-                                        Select an appointment or enter a room code on the left, then click <strong>"Start / Join Session Room"</strong>.
+                                        Select an upcoming appointment, then click <strong>"Start / Join Session Room"</strong>.
                                     </p>
                                 </div>
 
@@ -2225,6 +2233,17 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        function generateUniqueAppointmentRoomCode() {
+            let code;
+            do {
+                const randomBytes = crypto.getRandomValues(new Uint8Array(8));
+                code = `LINDA-${[...randomBytes].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+            } while (appointments.some((appointment) =>
+                appointment.roomCode?.toUpperCase().replace(/[^A-Z0-9]/g, '') === code.replace(/[^A-Z0-9]/g, '')
+            ));
+            return code;
+        }
+
         async function openAppointmentModal(defaultDate = '', editId = '') {
             try {
                 const [staffResponse, availabilityResponse] = await Promise.all([
@@ -2276,7 +2295,7 @@
                 title.textContent = "Schedule New Appointment";
                 document.getElementById('appt-id').value = '';
                 document.getElementById('appt-date').value = defaultDate || selectedDateFilter || formatYMD(new Date());
-                document.getElementById('appt-room').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+                document.getElementById('appt-room').value = generateUniqueAppointmentRoomCode();
                 document.getElementById('appt-status').value = 'Pending';
                 document.getElementById('appt-send-email-check').checked = true;
                 document.getElementById('appt-host-staff').value = currentPortalUser.id;
@@ -2535,8 +2554,8 @@
                         }
                         const rawSummary = summaryMatch ? summaryMatch[1].trim() : "Imported Session";
                         const clientName = rawSummary.replace(/^Therapy Session\s*-\s*/i, '').replace(/\s*\([A-Z0-9-]+\)$/, '').trim();
-                        const roomMatch = block.match(/LINDA-\d+/i);
-                        const roomCode = roomMatch ? roomMatch[0].toUpperCase() : `LINDA-${Math.floor(100 + Math.random() * 900)}`;
+                        const roomMatch = block.match(/LINDA-[A-Z0-9]+/i);
+                        const roomCode = roomMatch ? roomMatch[0].toUpperCase() : generateUniqueAppointmentRoomCode();
 
                         try {
                             await persistAppointment({
@@ -2582,38 +2601,87 @@
         let portalTimerInterval = null;
         let portalSessionSeconds = 0;
 
+        function getUpcomingVideoAppointments() {
+            const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23'
+            }).formatToParts(new Date()).filter((part) => part.type !== 'literal')
+                .map((part) => [part.type, part.value]));
+            const today = `${parts.year}-${parts.month}-${parts.day}`;
+            const nowMinutes = Number(parts.hour) * 60 + Number(parts.minute);
+            return appointments.filter((appointment) => {
+                if (!appointment.roomCode || ['Completed', 'Reschedule Requested'].includes(appointment.status) ||
+                    !/^\d{4}-\d{2}-\d{2}$/.test(appointment.date) ||
+                    !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time || '')) return false;
+                if (appointment.date > today) return true;
+                if (appointment.date < today) return false;
+                const startMinutes = Number(appointment.time.slice(0, 2)) * 60 + Number(appointment.time.slice(3));
+                return startMinutes + Number(appointment.duration || 50) > nowMinutes;
+            }).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+        }
+
         function populateStudioAppointmentDropdown() {
             const select = document.getElementById('portal-appt-select');
             if (!select) return;
-            const sorted = appointments.filter((appointment) => appointment.status !== 'Completed')
-                .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
-            select.innerHTML = `<option value="">-- Select Scheduled Appointment or Enter Custom --</option>` +
+            const sorted = getUpcomingVideoAppointments();
+            select.innerHTML = `<option value="">-- Select Upcoming Appointment --</option>` +
                 sorted.map((a) => `<option value="${a.id}">${escapeHtml(a.date)} ${escapeHtml(a.time)} — ${escapeHtml(a.clientName)} (${escapeHtml(a.roomCode)}) [${escapeHtml(a.status || 'Pending')}]</option>`).join('');
+            const list = document.getElementById('video-upcoming-list');
+            if (list) {
+                list.innerHTML = sorted.length ? sorted.map((appointment) => `
+                    <div class="flex items-center justify-between gap-3 rounded-xl border border-sage-700 bg-sage-900/70 p-3">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold text-white">${escapeHtml(appointment.clientName)}</p>
+                            <p class="mt-0.5 text-xs text-sage-300">${escapeHtml(appointment.date)} at ${escapeHtml(appointment.time)} ET</p>
+                        </div>
+                        <button type="button" data-upcoming-appointment="${escapeHtml(appointment.id)}" class="shrink-0 rounded-lg bg-sage-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sage-600">Select</button>
+                    </div>
+                `).join('') : '<p class="text-sm text-sage-300">No upcoming appointment chats are scheduled.</p>';
+                list.querySelectorAll('[data-upcoming-appointment]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        document.getElementById('portal-appt-select').value = button.dataset.upcomingAppointment;
+                        loadAppointmentIntoStudio(button.dataset.upcomingAppointment);
+                    });
+                });
+            }
         }
 
         function loadAppointmentIntoStudio(apptId) {
             const appt = appointments.find((a) => a.id === apptId);
-            if (!appt) return;
+            if (!appt) {
+                document.getElementById('portal-client-name').value = '';
+                document.getElementById('portal-room-code').value = '';
+                document.getElementById('portal-session-notes').value = '';
+                return;
+            }
             document.getElementById('portal-client-name').value = appt.clientName;
             document.getElementById('portal-room-code').value = appt.roomCode;
             document.getElementById('portal-session-notes').value = appt.notes || `${appt.service} (${appt.duration} min scheduled)`;
         }
 
         function launchAppointmentVideo(apptId) {
+            if (!getUpcomingVideoAppointments().some((appointment) => appointment.id === apptId)) {
+                showPortalToast("Only upcoming active appointments can be joined in Video Studio.");
+                return;
+            }
             switchPortalTab('video');
             document.getElementById('portal-appt-select').value = apptId;
             loadAppointmentIntoStudio(apptId);
             showPortalToast("Loaded appointment into Clinician Video Studio.");
         }
 
-        function generatePortalRoomCode() {
-            document.getElementById('portal-room-code').value = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
-        }
-
         function copyClientInviteFromPortal() {
             const code = document.getElementById('portal-room-code').value.trim().toUpperCase();
-            if (!code) {
-                alert("Please enter or generate a Session Room Code first.");
+            const appointment = getUpcomingVideoAppointments().find((item) =>
+                item.id === document.getElementById('portal-appt-select').value && item.roomCode === code
+            );
+            if (!appointment) {
+                alert("Select an upcoming scheduled appointment before copying its invite link.");
                 return;
             }
             const inviteUrl = `${window.location.origin}/index.html?room=${encodeURIComponent(code)}#telehealth`;
@@ -2653,9 +2721,13 @@
         async function joinPortalVideoRoom() {
             const roomCodeRaw = document.getElementById('portal-room-code').value.trim();
             const cleanCode = roomCodeRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
-            if (!cleanCode) {
-                alert("Please enter or select a Session Room Code first.");
-                document.getElementById('portal-room-code').focus();
+            const selectedAppointmentId = document.getElementById('portal-appt-select').value;
+            const appointment = getUpcomingVideoAppointments().find((item) =>
+                item.id === selectedAppointmentId &&
+                item.roomCode.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCode
+            );
+            if (!appointment) {
+                alert("Select an upcoming scheduled appointment. Video rooms cannot be created with custom codes.");
                 return;
             }
 
@@ -2721,9 +2793,14 @@
                 document.getElementById('portal-join-btn-text').textContent = `Active in ${roomCodeRaw.toUpperCase()}`;
                 document.getElementById('portal-conn-badge').textContent = "In Room • Tracking Time";
                 startPortalSessionTimer();
-            } catch (err) {
-                document.getElementById('portal-join-btn-text').textContent = `Active in ${roomCodeRaw.toUpperCase()}`;
-                startPortalSessionTimer();
+            } catch {
+                portalSignaling.disconnect();
+                portalSignaling = null;
+                document.getElementById('portal-join-btn-text').textContent = "2. Start / Join Session Room";
+                document.getElementById('portal-conn-badge').textContent = "Connection Failed";
+                document.getElementById('portal-waiting-title').textContent = "Could not join this appointment room";
+                document.getElementById('portal-waiting-sub').textContent = "Check that this is the room code assigned to the selected appointment.";
+                alert("Could not connect to the appointment room. Verify the selected appointment code and try again.");
             }
         }
 
@@ -2763,7 +2840,7 @@
 
             if (portalSessionSeconds >= 5) {
                 const clientName = document.getElementById('portal-client-name').value.trim() || "Telehealth Client";
-                const roomCode = document.getElementById('portal-room-code').value.trim().toUpperCase() || "TELEHEALTH";
+                const roomCode = document.getElementById('portal-room-code').value.trim().toUpperCase();
                 const notes = document.getElementById('portal-session-notes').value.trim() || "Logged automatically from Clinician Video Studio";
 
                 const entry = {

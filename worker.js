@@ -7,6 +7,22 @@ const AUTH_SESSION_COOKIE = "linda_portal_session";
 const CLIENT_SESSION_COOKIE = "linda_client_session";
 const APPOINTMENT_TIME_ZONE = "America/New_York";
 
+function normalizeVideoRoomCode(value) {
+  return typeof value === "string" ? value.toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
+}
+
+function createUniqueVideoRoomCode(appointments) {
+  const existingCodes = new Set(appointments.map((appointment) =>
+    normalizeVideoRoomCode(appointment.roomCode)
+  ));
+  let roomCode;
+  do {
+    const randomBytes = crypto.getRandomValues(new Uint8Array(8));
+    roomCode = `LINDA-${[...randomBytes].map((byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+  } while (existingCodes.has(normalizeVideoRoomCode(roomCode)));
+  return roomCode;
+}
+
 export class ChatRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -1011,7 +1027,7 @@ export class ChatRoom extends DurableObject {
           timeZone: APPOINTMENT_TIME_ZONE,
           duration,
           service,
-          roomCode: `LINDA-${100 + crypto.getRandomValues(new Uint32Array(1))[0] % 900}`,
+          roomCode: createUniqueVideoRoomCode(appointments),
           reminderEnabled: true,
           status: "Awaiting Confirmation",
           notes: "",
@@ -1029,9 +1045,6 @@ export class ChatRoom extends DurableObject {
             status: 409,
             headers: jsonHeaders,
           });
-        }
-        if (appointments.some((item) => item.roomCode === appointment.roomCode)) {
-          appointment.roomCode = `LINDA-${Math.floor(100 + Math.random() * 900)}`;
         }
         appointments.push(appointment);
         await this.ctx.storage.put("appointments", appointments);
@@ -1331,6 +1344,32 @@ export class ChatRoom extends DurableObject {
       return new Response(JSON.stringify({ recipients }), { headers: jsonHeaders });
     }
 
+    if (url.pathname === "/internal/video/validate" && request.method === "GET") {
+      const roomCode = normalizeVideoRoomCode(url.searchParams.get("room"));
+      if (!roomCode) {
+        return new Response(JSON.stringify({ error: "Enter a valid appointment session code." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const matchingAppointments = appointments.filter((appointment) =>
+        normalizeVideoRoomCode(appointment.roomCode) === roomCode &&
+        !["Completed", "Reschedule Requested"].includes(appointment.status)
+      );
+      if (matchingAppointments.length !== 1) {
+        return new Response(JSON.stringify({
+          error: matchingAppointments.length
+            ? "This session code is assigned to more than one appointment. Contact the practice."
+            : "This code does not match an active appointment.",
+        }), {
+          status: matchingAppointments.length ? 409 : 403,
+          headers: jsonHeaders,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
     if (url.pathname === "/internal/reminders/claim" && request.method === "POST") {
       const body = await request.json();
       const now = Number(body.now);
@@ -1436,6 +1475,17 @@ export class ChatRoom extends DurableObject {
       if (request.method === "POST") {
         const body = await request.json();
         if (Array.isArray(body.appointments)) {
+          const roomCodes = new Set();
+          for (const appointment of body.appointments) {
+            const roomCode = normalizeVideoRoomCode(appointment?.roomCode);
+            if (roomCode && roomCodes.has(roomCode)) {
+              return new Response(JSON.stringify({ error: "Each appointment must have a unique video session code." }), {
+                status: 409,
+                headers: jsonHeaders,
+              });
+            }
+            if (roomCode) roomCodes.add(roomCode);
+          }
           const users = (await this.ctx.storage.get("auth:users")) || [];
           const invalidReminder = body.appointments.find((appointment) =>
             appointment.reminderEnabled === true && !isAppointmentReminderConfigured(appointment, users)
@@ -1453,6 +1503,20 @@ export class ChatRoom extends DurableObject {
           return new Response(JSON.stringify({ appointments: mergedAppointments }), { headers: jsonHeaders });
         }
         const item = body.appointment;
+        const roomCode = normalizeVideoRoomCode(item?.roomCode);
+        if (!roomCode) {
+          return new Response(JSON.stringify({ error: "Enter a valid video session code." }), {
+            status: 400,
+            headers: jsonHeaders,
+          });
+        }
+        if (appointments.some((appointment) => appointment.id !== item?.id &&
+          normalizeVideoRoomCode(appointment.roomCode) === roomCode)) {
+          return new Response(JSON.stringify({ error: "That video session code is already assigned to another appointment." }), {
+            status: 409,
+            headers: jsonHeaders,
+          });
+        }
         if (item && isValidEmail(item.clientEmail)) {
           const existing = appointments.find((appointment) => appointment.id === item.id);
           const unchangedSlot = existing && existing.hostUserId === item.hostUserId &&
@@ -3311,7 +3375,17 @@ export default {
 
     // 7. WebSocket Signaling Endpoint
     if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
-      const roomId = url.searchParams.get("room") || "default";
+      const roomId = normalizeVideoRoomCode(url.searchParams.get("room"));
+      if (!roomId) {
+        return new Response(JSON.stringify({ error: "Enter a valid appointment session code." }), {
+          status: 400,
+          headers: { ...jsonHeaders, "Cache-Control": "no-store" },
+        });
+      }
+      const validationUrl = new URL("https://internal/internal/video/validate");
+      validationUrl.searchParams.set("room", roomId);
+      const validation = await getAdminStoreStub(env).fetch(new Request(validationUrl, { method: "GET" }));
+      if (!validation.ok) return validation;
       const id = env.CHAT_ROOM.idFromName(roomId);
       const stub = env.CHAT_ROOM.get(id);
       return stub.fetch(request);
@@ -3341,9 +3415,9 @@ export default {
       const rawMime = await new Response(message.raw).text();
       const plainText = extractPlainTextFromMime(rawMime);
 
-      // Look for a Room Code like LINDA-123 in the subject or body
+      // Match room codes generated for scheduled appointments.
       const roomMatch =
-        subject.match(/LINDA-\d+/i) || plainText.match(/LINDA-\d+/i);
+        subject.match(/LINDA-[A-Z0-9]+/i) || plainText.match(/LINDA-[A-Z0-9]+/i);
       const roomCode = roomMatch ? roomMatch[0].toUpperCase() : "";
 
       // Determine whether the client is confirming or asking to reschedule/cancel
