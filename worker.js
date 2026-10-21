@@ -1326,8 +1326,8 @@ export class ChatRoom extends DurableObject {
     if (url.pathname === "/internal/reminder-recipients" && request.method === "GET") {
       const users = (await this.ctx.storage.get("auth:users")) || [];
       const recipients = users
-        .filter((user) => user.active && isValidEmail(user.email))
-        .map((user) => ({ id: user.id, displayName: user.displayName, email: user.email }));
+        .filter((user) => user.active && ["admin", "staff"].includes(user.role) && isValidEmail(user.email))
+        .map((user) => ({ id: user.id, displayName: user.displayName }));
       return new Response(JSON.stringify({ recipients }), { headers: jsonHeaders });
     }
 

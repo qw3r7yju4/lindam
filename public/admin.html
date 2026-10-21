@@ -702,7 +702,7 @@
                 <div>
                     <label for="appt-host-staff" class="block text-xs font-semibold uppercase tracking-wider text-sage-800 mb-1">Hosting Staff Member *</label>
                     <select id="appt-host-staff" required class="w-full px-3.5 py-2.5 rounded-xl bg-sand-50 border border-sand-300 text-sm"></select>
-                    <p id="appt-availability-help" class="text-[11px] text-sage-500 mt-1">Choose a staff member, date, and duration to view available start times.</p>
+                    <p id="appt-availability-help" class="text-[11px] text-sage-500 mt-1">Choose an administrator or staff member, date, and duration to view available start times.</p>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2239,7 +2239,7 @@
                 if (!availabilityResponse.ok) throw new Error(availabilityData.error || 'Could not load staff availability.');
                 appointmentStaffUsers = staffData.recipients || [];
                 staffSchedules = availabilityData.schedules || [];
-                if (appointmentStaffUsers.length === 0) throw new Error('Create an active portal user with an email before scheduling appointments.');
+                if (appointmentStaffUsers.length === 0) throw new Error('Create an active administrator or staff account with an email before scheduling appointments.');
             } catch (error) {
                 showPortalToast(error.message || 'Could not load hosting staff accounts.');
                 return;
@@ -2252,7 +2252,7 @@
             form.reset();
             currentEditingAppointmentId = editId;
             hostSelect.innerHTML = appointmentStaffUsers.map((staff) =>
-                `<option value="${escapeHtml(staff.id)}">${escapeHtml(staff.displayName)} (${escapeHtml(staff.email)})</option>`
+                `<option value="${escapeHtml(staff.id)}">${escapeHtml(staff.displayName)}</option>`
             ).join('');
 
             if (editId) {
