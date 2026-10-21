@@ -56,7 +56,8 @@
 		"FORWARD_TO_EMAIL": "klucinaken@gmail.com",
 		"SENDER_EMAIL": "lindasappointments@klutchplay.com",
 		"PUBLIC_SITE_URL": "https://lindam.klutchplay.com",
-		"SQUARE_WEBHOOK_NOTIFICATION_URL": "https://lindam.klutchplay.com/api/square/webhook"
+		"SQUARE_WEBHOOK_NOTIFICATION_URL": "https://lindam.klutchplay.com/api/square/webhook",
+		"SQUARE_LOCATION_ID": "LTFQ2B5TPKABZ"
 	},
 	"routes": [
 		{
