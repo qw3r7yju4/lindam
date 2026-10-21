@@ -1,25 +1,28 @@
-﻿{
-    "private":  true,
-    "scripts":  {
-                    "build:css":  "tailwindcss -i ./src/styles.css -o ./public/tailwind.css --minify",
-                    "build":  "npm run build:css"
-                },
-    "devDependencies":  {
-                            "@cloudflare/vitest-plugin":  "^1.4.6",
-                            "lucide":  "^1.60.0",
-                            "tailwindcss":  "^3.4.17",
-                            "typescript":  "^7.0.2",
-                            "vitest":  "^4.1.12",
-                            "wrangler":  "^4.151.3"
-                        },
-    "allowScripts":  {
-                         "esbuild@0.28.2":  true,
-                         "workerd@1.20261019.1":  true,
-                         "esbuild@0.28.1":  true,
-                         "workerd@1.20260815.1":  true
-                     },
-    "dependencies":  {
-                         "hono":  "^4.13.13"
-                     },
-    "type":  "module"
+{
+    "private": true,
+    "scripts": {
+        "build:css": "tailwindcss -i ./src/styles.css -o ./public/tailwind.css --minify",
+        "build": "npm run build:css",
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-plugin": "^1.4.6",
+        "@cloudflare/workers-types": "^5.20261021.1",
+        "lucide": "^1.60.0",
+        "tailwindcss": "^3.4.17",
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.12",
+        "wrangler": "^4.151.3"
+    },
+    "allowScripts": {
+        "esbuild@0.28.2": true,
+        "workerd@1.20261019.1": true,
+        "esbuild@0.28.1": true,
+        "workerd@1.20260815.1": true
+    },
+    "dependencies": {
+        "hono": "^4.13.13"
+    },
+    "type": "module"
 }

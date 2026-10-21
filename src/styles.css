@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: #fdfcfa;
+    color: #253527;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  ::selection {
+    background-color: #c9d8c9;
+    color: #253527;
+  }
+}
+
+@layer components {
+  /* Subtle glassmorphism surface */
+  .glass-panel {
+    background: rgba(253, 252, 250, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(228, 217, 197, 0.6);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(240, 234, 221, 0.9);
+    box-shadow: 0 4px 20px -2px rgba(44, 64, 46, 0.05);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -4px rgba(44, 64, 46, 0.09);
+    border-color: rgba(163, 188, 164, 0.6);
+  }
+
+  /* Interactive Pill Buttons */
+  .badge-soft-sage {
+    background-color: #e4ebe4;
+    color: #354f37;
+    border: 1px solid rgba(163, 188, 164, 0.4);
+  }
+
+  .badge-soft-clay {
+    background-color: #f6ebe5;
+    color: #85513d;
+    border: 1px solid rgba(207, 143, 116, 0.35);
+  }
+
+  /* Video session mirror */
+  .mirror-video {
+    transform: scaleX(-1);
+  }
+
+  /* Subtle background pattern */
+  .hero-pattern {
+    background-image: radial-gradient(#769a78 0.75px, transparent 0.75px), radial-gradient(#769a78 0.75px, #fdfcfa 0.75px);
+    background-size: 32px 32px;
+    background-position: 0 0, 16px 16px;
+  }
+
+  .editable-highlight {
+    outline: 2px dashed #769a78;
+    outline-offset: 6px;
+    background-color: rgba(228, 235, 228, 0.35);
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+  }
+}
+

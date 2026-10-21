@@ -6,34 +6,32 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="referrer" content="no-referrer">
     <title>Confirm Email Change | Clinician Portal</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { background: #f8f5ef; color: #2c352d; font: 15px Arial, sans-serif; margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; }
-        main { background: white; border: 1px solid #e5ded2; border-radius: 24px; box-shadow: 0 16px 40px #2030201a; max-width: 448px; padding: 32px; width: 100%; }
-        header { margin-bottom: 24px; text-align: center; }
-        h1, p { margin: 0 0 10px; }
-        h1 { color: #263d2a; font: 600 26px Georgia, serif; }
-        p { color: #626b62; line-height: 1.5; }
-        button { background: #36583b; border: 0; border-radius: 10px; color: white; cursor: pointer; font: 600 14px Arial, sans-serif; margin: 12px 0; padding: 13px; width: 100%; }
-        button:disabled { cursor: not-allowed; opacity: .65; }
-        a { color: #36583b; display: block; margin-top: 18px; text-align: center; }
-        #status { border-radius: 10px; line-height: 1.5; padding: 12px; }
-        .bg-rose-50 { background: #fff1f2; color: #9f1239; }
-        .bg-emerald-50 { background: #ecfdf5; color: #065f46; }
-    </style>
+    <link rel="stylesheet" href="/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
-    <main class="w-full max-w-md bg-white rounded-3xl border border-stone-200 shadow-xl p-7 sm:p-9 space-y-6">
+<body class="min-h-screen bg-[#fdfcfa] font-sans text-sage-900 antialiased selection:bg-sage-200 selection:text-sage-900 flex items-center justify-center p-4">
+    <main class="w-full max-w-md bg-white rounded-3xl border border-sand-200 shadow-card p-7 sm:p-9 space-y-6">
         <header class="text-center space-y-2">
-            <h1 class="font-serif text-2xl font-semibold text-green-950">Clinician Portal</h1>
-            <p class="text-sm text-stone-600">Confirm account email update</p>
+            <div class="w-12 h-12 rounded-2xl bg-sage-50 text-sage-700 flex items-center justify-center mx-auto mb-2">
+                <i data-lucide="mail-check" class="w-6 h-6"></i>
+            </div>
+            <h1 class="font-serif text-2xl font-semibold text-sage-900">Clinician Portal</h1>
+            <p class="text-xs sm:text-sm text-sage-600">Confirm account email update</p>
         </header>
-        <div class="space-y-3">
-            <p class="text-sm text-stone-600">Confirm this request to update the account email. If you did not request it, close this page; the address on file will remain unchanged.</p>
-            <button id="confirm-button" type="button" class="w-full bg-green-800 hover:bg-green-900 text-white font-semibold py-3 rounded-xl">Confirm email change</button>
+        <div class="space-y-4">
+            <p class="text-xs sm:text-sm text-sage-600 leading-relaxed">Confirm this request to update the account email. If you did not request it, close this page; the address on file will remain unchanged.</p>
+            <button id="confirm-button" type="button" class="w-full bg-sage-700 hover:bg-sage-800 text-white font-semibold py-3.5 rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                <span>Confirm email change</span>
+            </button>
         </div>
-        <p id="status" role="status" aria-live="polite" class="hidden rounded-xl p-3 text-sm"></p>
-        <a href="admin.html" class="block text-center text-sm text-green-800 hover:underline">Return to sign in</a>
+        <p id="status" role="status" aria-live="polite" class="hidden rounded-xl p-3 text-xs sm:text-sm"></p>
+        <div class="pt-4 border-t border-sand-200 text-center">
+            <a href="admin.html" class="text-xs font-medium text-sage-700 hover:text-sage-900 hover:underline">Return to sign in</a>
+        </div>
     </main>
     <script>
         const token = new URLSearchParams(location.search).get('token') || '';
@@ -42,7 +40,8 @@
         const status = document.getElementById('status');
         function showStatus(message, isError = false) {
             status.textContent = message;
-            status.className = `rounded-xl p-3 text-sm ${isError ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`;
+            status.className = `rounded-xl p-3 text-xs sm:text-sm font-medium ${isError ? 'bg-rose-50 text-rose-800 border border-rose-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`;
+            status.classList.remove('hidden');
         }
         if (!/^[a-f0-9]{64}$/i.test(token)) {
             button.disabled = true;
@@ -64,6 +63,7 @@
                 button.disabled = false;
             }
         });
+        if (window.lucide) window.lucide.createIcons();
     </script>
 </body>
 </html>

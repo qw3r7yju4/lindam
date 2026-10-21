@@ -1,111 +1,221 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Create an appointment account and request a session with Linda Milewski, LCSW.">
-    <title>Appointment Account | Linda Milewski, LCSW</title>
+    <meta name="description" content="Client Appointment Portal | Schedule and manage confidential psychotherapy sessions with Linda Milewski, LCSW.">
+    <title>Appointments &amp; Client Portal | Linda Milewski, LCSW</title>
     <link rel="stylesheet" href="/tailwind.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body class="min-h-screen bg-sand-50 font-sans text-sage-900">
-    <header class="border-b border-sand-200 bg-white">
-        <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-            <a href="index.html" class="font-serif text-lg font-semibold">Linda Milewski, LCSW</a>
-            <a href="index.html" class="text-sm font-medium text-sage-700 hover:text-sage-900">Back to website</a>
+<body class="min-h-screen bg-[#fdfcfa] font-sans text-sage-900 antialiased selection:bg-sage-200 selection:text-sage-900 flex flex-col">
+    <!-- Top Announcement Banner -->
+    <div class="bg-sage-900 text-sand-100 text-xs py-2 px-4 border-b border-sage-800">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Confidential, HIPAA-aligned client scheduling &amp; telehealth portal</span>
+            </div>
+            <a href="index.html" class="text-sage-200 hover:text-white transition flex items-center gap-1 font-medium">
+                <span>&larr; Back to website</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-30 bg-[#fdfcfa]/90 backdrop-blur-md border-b border-sand-200">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <a href="index.html" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-sage-700 text-sand-50 flex items-center justify-center font-serif text-lg font-bold shadow-sm">
+                    LM
+                </div>
+                <div>
+                    <span class="font-serif text-lg sm:text-xl font-semibold block leading-tight">Linda Milewski, LCSW</span>
+                    <span class="text-xs text-sage-600 block">Psychotherapy &amp; Telehealth</span>
+                </div>
+            </a>
+            <div class="flex items-center gap-3">
+                <a href="index.html#telehealth" class="text-xs font-medium text-sage-700 hover:text-sage-900 px-3 py-1.5 rounded-lg border border-sand-300 bg-white hover:bg-sand-50 transition flex items-center gap-1.5">
+                    <i data-lucide="video" class="w-3.5 h-3.5 text-sage-600"></i>
+                    <span>Live Video Room</span>
+                </a>
+                <a href="admin.html" class="text-xs font-medium text-sage-600 hover:text-sage-900 px-2 py-1 flex items-center gap-1">
+                    <i data-lucide="lock" class="w-3 h-3"></i>
+                    <span>Clinician</span>
+                </a>
+            </div>
         </div>
     </header>
 
-    <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 flex-1 w-full">
         <div class="mb-8 max-w-2xl">
-            <p class="text-sm font-semibold uppercase tracking-wider text-sage-600">Client appointment portal</p>
-            <h1 class="mt-2 font-serif text-3xl font-semibold sm:text-4xl">Appointments, on your schedule</h1>
-            <p class="mt-3 text-sm leading-6 text-sage-700">Create an account or sign in to request an appointment and see your requests. New appointment requests are reviewed by the practice before they are confirmed.</p>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-sage-100 text-sage-800 border border-sage-200">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-sage-600"></i>
+                Client Appointment Portal
+            </span>
+            <h1 class="mt-2 font-serif text-3xl font-semibold sm:text-4xl text-sage-900">Appointments, on your schedule</h1>
+            <p class="mt-2 text-sm sm:text-base leading-relaxed text-sage-700">Create an account or sign in to request an appointment and see your requests. New appointment requests are reviewed by the practice before they are confirmed.</p>
         </div>
 
-        <div id="page-message" role="status" aria-live="polite" class="mb-5 hidden rounded-xl border px-4 py-3 text-sm"></div>
+        <div id="page-message" role="status" aria-live="polite" class="mb-6 hidden rounded-2xl border px-4 py-3.5 text-sm font-medium shadow-sm transition"></div>
 
-        <section id="auth-panel" class="grid gap-6 lg:grid-cols-2">
-            <form id="login-form" class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
-                <h2 class="font-serif text-2xl font-semibold">Sign in</h2>
-                <p class="mt-1 text-sm text-sage-700">Use your username or account email.</p>
-                <label class="mt-5 block text-sm font-medium" for="login-username">Username or email</label>
-                <input id="login-username" name="username" autocomplete="username" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <label class="mt-4 block text-sm font-medium" for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <button class="mt-5 w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Sign in</button>
-                <a href="reset-password.html" class="mt-4 block text-center text-sm font-medium text-sage-700 hover:underline">Forgot your password?</a>
+        <section id="auth-panel" class="grid gap-8 lg:grid-cols-2">
+            <form id="login-form" class="rounded-3xl border border-sand-200 bg-white p-6 shadow-card sm:p-8 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-sand-100 pb-4 mb-6">
+                        <div>
+                            <h2 class="font-serif text-2xl font-semibold text-sage-900">Sign in</h2>
+                            <p class="mt-1 text-xs sm:text-sm text-sage-600">Use your username or account email.</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-2xl bg-sage-50 text-sage-700 flex items-center justify-center">
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="login-username">Username or email</label>
+                    <input id="login-username" name="username" autocomplete="username" required placeholder="name@example.com" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <label class="mt-4 block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="login-password">Password</label>
+                    <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••••••" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <button class="mt-6 w-full rounded-xl bg-sage-700 px-4 py-3 text-sm font-semibold text-white shadow-md hover:bg-sage-800 transition flex items-center justify-center gap-2">
+                        <span>Sign in to Portal</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    <a href="reset-password.html" class="mt-4 block text-center text-xs font-medium text-sage-700 hover:underline">Forgot your password?</a>
+                </div>
             </form>
 
-            <form id="signup-form" class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
-                <h2 class="font-serif text-2xl font-semibold">Create an account</h2>
-                <p class="mt-1 text-sm text-sage-700">We’ll email you a verification code to finish signup.</p>
-                <label class="mt-5 block text-sm font-medium" for="signup-name">Full name</label>
-                <input id="signup-name" name="displayName" autocomplete="name" maxlength="80" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <label class="mt-4 block text-sm font-medium" for="signup-email">Email address</label>
-                <input id="signup-email" name="email" type="email" autocomplete="email" maxlength="254" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <label class="mt-4 block text-sm font-medium" for="signup-username">Username</label>
-                <input id="signup-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <p class="mt-1 text-xs text-sage-600">Use 3–32 letters, numbers, periods, underscores, or hyphens.</p>
-                <label class="mt-4 block text-sm font-medium" for="signup-password">Password</label>
-                <input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
-                <button id="signup-submit" class="mt-5 w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Email me a verification code</button>
+            <form id="signup-form" class="rounded-3xl border border-sand-200 bg-white p-6 shadow-card sm:p-8 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-sand-100 pb-4 mb-6">
+                        <div>
+                            <h2 class="font-serif text-2xl font-semibold text-sage-900">Create an account</h2>
+                            <p class="mt-1 text-xs sm:text-sm text-sage-600">We’ll email you a verification code to finish signup.</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-2xl bg-clay-50 text-clay-600 flex items-center justify-center">
+                            <i data-lucide="user-plus" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="signup-name">Full name</label>
+                    <input id="signup-name" name="displayName" autocomplete="name" maxlength="80" required placeholder="Jane Doe" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <label class="mt-4 block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="signup-email">Email address</label>
+                    <input id="signup-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="jane@example.com" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <label class="mt-4 block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="signup-username">Username</label>
+                    <input id="signup-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9._-]{3,32}" required placeholder="janedoe" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <p class="mt-1 text-[11px] text-sage-500">Use 3–32 letters, numbers, periods, underscores, or hyphens.</p>
+                    <label class="mt-4 block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1" for="signup-password">Password</label>
+                    <input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required placeholder="At least 12 characters" class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-3.5 py-2.5 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                    <button id="signup-submit" class="mt-6 w-full rounded-xl bg-sage-700 px-4 py-3 text-sm font-semibold text-white shadow-md hover:bg-sage-800 transition flex items-center justify-center gap-2">
+                        <span>Email me a verification code</span>
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </form>
 
-            <form id="verify-form" class="hidden rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7 lg:col-span-2">
-                <h2 class="font-serif text-2xl font-semibold">Verify your email</h2>
-                <p class="mt-1 text-sm text-sage-700">Enter the six-digit code sent to <span id="verification-email" class="font-semibold"></span>. The code expires after 10 minutes.</p>
+            <form id="verify-form" class="hidden rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 shadow-sm sm:p-8 lg:col-span-2">
+                <div class="flex items-center gap-2 text-emerald-900 mb-2">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+                    <h2 class="font-serif text-2xl font-semibold">Verify your email</h2>
+                </div>
+                <p class="text-xs sm:text-sm text-emerald-800">Enter the six-digit code sent to <span id="verification-email" class="font-semibold underline"></span>. The code expires after 10 minutes.</p>
                 <div class="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <input id="verification-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required aria-label="Six-digit verification code" class="w-full rounded-xl border border-sand-300 px-3 py-2.5 sm:max-w-xs">
-                    <button id="verify-submit" class="rounded-xl bg-sage-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sage-700">Verify and create account</button>
+                    <input id="verification-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required placeholder="123456" aria-label="Six-digit verification code" class="w-full rounded-xl border border-emerald-300 bg-white px-4 py-3 text-center text-lg font-mono font-bold tracking-[0.25em] sm:max-w-xs focus:outline-none focus:ring-2 focus:ring-emerald-600">
+                    <button id="verify-submit" class="rounded-xl bg-emerald-700 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-800 shadow-sm transition">Verify and create account</button>
                 </div>
             </form>
         </section>
 
-        <section id="client-panel" class="hidden space-y-6">
-            <div class="flex flex-col justify-between gap-3 rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
-                <div>
-                    <p class="text-sm text-sage-600">Signed in as</p>
-                    <h2 id="client-display-name" class="font-serif text-2xl font-semibold"></h2>
+        <section id="client-panel" class="hidden space-y-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-sand-200 bg-white p-5 sm:p-6 shadow-sm">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-2xl bg-sage-100 text-sage-800 flex items-center justify-center font-semibold text-base">
+                        <i data-lucide="user" class="w-5 h-5 text-sage-700"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-sage-600">Active Client Account</span>
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                        </div>
+                        <h2 class="font-serif text-xl sm:text-2xl font-semibold text-sage-900 leading-tight">
+                            Hello, <span id="client-display-name">Client</span>
+                        </h2>
+                    </div>
                 </div>
-                <button id="logout-button" type="button" class="rounded-xl border border-sand-300 px-4 py-2.5 text-sm font-semibold hover:bg-sand-100">Sign out</button>
+                <div class="flex items-center gap-3">
+                    <a href="index.html#telehealth" class="bg-sage-50 hover:bg-sage-100 text-sage-800 border border-sage-200 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5">
+                        <i data-lucide="video" class="w-4 h-4 text-sage-600"></i>
+                        <span>Video Waiting Room</span>
+                    </a>
+                    <button id="logout-button" type="button" class="rounded-xl border border-sand-300 bg-white hover:bg-sand-100 px-4 py-2.5 text-xs sm:text-sm font-semibold text-sage-800 transition flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
             </div>
 
-            <div class="grid gap-6 lg:grid-cols-2">
-                <section class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
-                    <h2 class="font-serif text-2xl font-semibold">Request an appointment</h2>
-                    <p class="mt-1 text-sm text-sage-700">Times are shown in Eastern Time. Your request is not confirmed until the practice reviews it.</p>
-                    <p id="appointment-price" class="mt-2 text-sm font-semibold text-sage-800"></p>
-                    <form id="availability-form" class="mt-5 space-y-4">
-                        <div>
-                            <label for="appointment-service" class="block text-sm font-medium">Appointment type</label>
-                            <select id="appointment-service" required class="mt-1 w-full rounded-xl border border-sand-300 bg-white px-3 py-2.5">
-                                <option>Free 15-Minute Consultation</option>
-                                <option selected>Individual Psychotherapy</option>
-                                <option>Anxiety &amp; Burnout Recovery</option>
-                                <option>Life Transitions &amp; Relationships</option>
-                            </select>
+            <div class="grid gap-8 lg:grid-cols-2">
+                <section class="rounded-3xl border border-sand-200 bg-white p-6 sm:p-8 shadow-card flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-sand-100 pb-4 mb-6">
+                            <div>
+                                <h3 class="font-serif text-2xl font-semibold text-sage-900">Request a Session</h3>
+                                <p class="mt-1 text-xs sm:text-sm text-sage-600">Choose your service and select an open time slot.</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-2xl bg-sage-50 text-sage-700 flex items-center justify-center">
+                                <i data-lucide="clock" class="w-5 h-5"></i>
+                            </div>
                         </div>
-                        <div>
-                            <label for="appointment-date" class="block text-sm font-medium">Date</label>
-                            <input id="appointment-date" type="date" required class="mt-1 w-full rounded-xl border border-sand-300 px-3 py-2.5">
+
+                        <form id="availability-form" class="space-y-4">
+                            <div>
+                                <label for="appointment-service" class="block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1.5">Appointment type</label>
+                                <select id="appointment-service" required class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-4 py-3 text-sm text-sage-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                                    <option>Free 15-Minute Consultation</option>
+                                    <option selected>Individual Psychotherapy</option>
+                                    <option>Anxiety &amp; Burnout Recovery</option>
+                                    <option>Life Transitions &amp; Relationships</option>
+                                </select>
+                                <div id="appointment-price" class="mt-2 text-xs font-medium text-sage-700 bg-sand-50 p-3 rounded-xl border border-sand-200"></div>
+                            </div>
+                            <div>
+                                <label for="appointment-date" class="block text-xs font-semibold uppercase tracking-wider text-sage-700 mb-1.5">Date</label>
+                                <input id="appointment-date" type="date" required class="w-full rounded-xl border border-sand-300 bg-sand-50/50 px-4 py-3 text-sm text-sage-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sage-600 transition">
+                            </div>
+                            <button class="w-full rounded-xl bg-sage-700 hover:bg-sage-800 text-white px-4 py-3.5 text-sm font-semibold shadow-md transition flex items-center justify-center gap-2">
+                                <i data-lucide="search" class="w-4 h-4"></i>
+                                <span>Find available times</span>
+                            </button>
+                        </form>
+                        <div id="availability-results" class="mt-6 space-y-4"></div>
+                        <div id="selected-slot" class="mt-6 hidden rounded-2xl bg-sage-50/90 border border-sage-200 p-5 space-y-3">
+                            <div class="flex items-center gap-2 text-sage-800 font-semibold text-sm">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-sage-600"></i>
+                                <span>Selected Appointment Slot</span>
+                            </div>
+                            <p id="selected-slot-label" class="text-sm font-medium text-sage-900"></p>
+                            <button id="request-appointment-button" type="button" class="w-full rounded-xl bg-sage-800 hover:bg-sage-900 px-4 py-3.5 text-sm font-semibold text-white shadow-md transition flex items-center justify-center gap-2">
+                                <span>Request this appointment</span>
+                                <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+                            </button>
                         </div>
-                        <button class="w-full rounded-xl bg-sage-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-700">Find available times</button>
-                    </form>
-                    <div id="availability-results" class="mt-5 space-y-4"></div>
-                    <div id="selected-slot" class="mt-4 hidden rounded-xl bg-sage-50 p-4">
-                        <p id="selected-slot-label" class="text-sm font-medium"></p>
-                        <button id="request-appointment-button" type="button" class="mt-3 w-full rounded-xl bg-sage-700 px-4 py-3 text-sm font-semibold text-white hover:bg-sage-800">Request this appointment</button>
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-sand-200 bg-white p-5 shadow-sm sm:p-7">
-                    <h2 class="font-serif text-2xl font-semibold">Your appointment requests</h2>
-                    <p class="mt-1 text-sm text-sage-700">The practice will contact you after reviewing a request.</p>
-                    <div id="client-appointments" class="mt-5 space-y-3">
-                        <p class="text-sm text-sage-600">Loading your appointments…</p>
+                <section class="rounded-3xl border border-sand-200 bg-white p-6 sm:p-8 shadow-card flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-sand-100 pb-4 mb-6">
+                            <div>
+                                <h3 class="font-serif text-2xl font-semibold text-sage-900">Your appointment requests</h3>
+                                <p class="mt-1 text-xs sm:text-sm text-sage-600">The practice will contact you after reviewing a request.</p>
+                            </div>
+                            <div class="w-10 h-10 rounded-2xl bg-sand-100 text-sage-700 flex items-center justify-center">
+                                <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                        <div id="client-appointments" class="space-y-3">
+                            <p class="text-sm text-sage-600">Loading your appointments…</p>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -337,18 +447,64 @@
                 const data = await apiRequest('/api/client/appointments');
                 const appointments = [...(data.appointments || [])].sort((a, b) =>
                     `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`));
-                container.innerHTML = appointments.length ? appointments.map((appointment) => `
-                    <article class="rounded-xl border border-sand-200 p-4">
-                        <p class="font-semibold">${escapeHtml(appointment.service)}</p>
-                        <p class="mt-1 text-sm text-sage-700">${escapeHtml(appointment.date)} at ${escapeHtml(appointment.time)} Eastern Time</p>
-                        <p class="mt-2 inline-flex rounded-full bg-sage-100 px-2.5 py-1 text-xs font-medium text-sage-800">${escapeHtml(appointment.status)}</p>
-                        ${appointment.paymentRequired ? `
-                            <p class="mt-2 text-sm text-sage-700">Payment: $${(Number(appointment.paymentAmount || 0) / 100).toFixed(2)} USD · ${escapeHtml(appointment.paymentStatus || 'unpaid')}</p>
-                            ${appointment.paymentStatus !== 'completed' && appointment.squarePaymentUrl ? `<a href="${escapeHtml(appointment.squarePaymentUrl)}" class="mt-2 inline-block text-sm font-semibold text-sage-700 underline">Complete payment securely</a>` : ''}
-                            ${appointment.paymentReceiptUrl ? `<a href="${escapeHtml(appointment.paymentReceiptUrl)}" target="_blank" rel="noopener noreferrer" class="mt-2 ml-3 inline-block text-sm font-semibold text-sage-700 underline">View Square receipt</a>` : ''}
-                        ` : '<p class="mt-2 text-sm text-sage-700">No payment required.</p>'}
-                    </article>
-                `).join('') : '<p class="text-sm text-sage-600">You don’t have any appointment requests yet.</p>';
+                container.innerHTML = appointments.length ? appointments.map((appointment) => {
+                    const statusClass = appointment.status === 'Confirmed'
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                        : (appointment.status === 'Awaiting Confirmation'
+                            ? 'bg-amber-100 text-amber-900 border-amber-200'
+                            : 'bg-sand-100 text-sage-800 border-sand-200');
+
+                    return `
+                        <article class="rounded-2xl border border-sand-200 bg-sand-50/50 p-4 sm:p-5 transition hover:bg-white hover:shadow-card">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 class="font-serif font-semibold text-base text-sage-900">${escapeHtml(appointment.service)}</h4>
+                                    <p class="mt-1 text-xs sm:text-sm text-sage-700 flex items-center gap-1.5">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5 text-sage-500"></i>
+                                        <span>${escapeHtml(appointment.date)} &bull; ${escapeHtml(appointment.time)} Eastern Time</span>
+                                    </p>
+                                </div>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusClass}">
+                                    ${escapeHtml(appointment.status)}
+                                </span>
+                            </div>
+
+                            <div class="mt-3 pt-3 border-t border-sand-200/70 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div>
+                                    ${appointment.paymentRequired ? `
+                                        <span class="text-sage-700">Fee: <strong>$${(Number(appointment.paymentAmount || 0) / 100).toFixed(2)} USD</strong> &bull; Status: <span class="capitalize font-medium">${escapeHtml(appointment.paymentStatus || 'unpaid')}</span></span>
+                                    ` : '<span class="text-emerald-700 font-medium">No payment required (Complimentary consultation)</span>'}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    ${appointment.paymentRequired && appointment.paymentStatus !== 'completed' && appointment.squarePaymentUrl ? `
+                                        <a href="${escapeHtml(appointment.squarePaymentUrl)}" class="rounded-lg bg-sage-700 hover:bg-sage-800 text-white px-3 py-1.5 font-semibold text-xs shadow-sm transition inline-flex items-center gap-1">
+                                            <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+                                            <span>Pay with Square</span>
+                                        </a>
+                                    ` : ''}
+                                    ${appointment.paymentReceiptUrl ? `
+                                        <a href="${escapeHtml(appointment.paymentReceiptUrl)}" target="_blank" rel="noopener noreferrer" class="text-sage-700 hover:text-sage-900 font-medium underline">
+                                            View Receipt
+                                        </a>
+                                    ` : ''}
+                                    ${appointment.status === 'Confirmed' && appointment.roomCode ? `
+                                        <a href="index.html#telehealth" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 font-semibold text-xs shadow-sm transition inline-flex items-center gap-1">
+                                            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                            <span>Join Video</span>
+                                        </a>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('') : `
+                    <div class="text-center py-8 rounded-2xl border border-dashed border-sand-300 p-6">
+                        <i data-lucide="calendar-x" class="w-8 h-8 text-sand-400 mx-auto mb-2"></i>
+                        <p class="text-sm font-medium text-sage-800">You don’t have any appointment requests yet.</p>
+                        <p class="text-xs text-sage-600 mt-1">Use the panel on the left to schedule your first session.</p>
+                    </div>
+                `;
+                if (window.lucide) window.lucide.createIcons();
             } catch (error) {
                 container.textContent = error.message;
             }
