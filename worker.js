@@ -6,6 +6,103 @@ const AUTH_MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const AUTH_SESSION_COOKIE = "linda_portal_session";
 const CLIENT_SESSION_COOKIE = "linda_client_session";
 const APPOINTMENT_TIME_ZONE = "America/New_York";
+const SQUARE_API_BASE_URL = "https://connect.squareup.com";
+const SQUARE_API_VERSION = "2025-10-16";
+const APPOINTMENT_PRICES = Object.freeze({
+  "Free 15-Minute Consultation": 0,
+  "Individual Psychotherapy": 15450,
+  "Anxiety & Burnout Recovery": 15450,
+  "Life Transitions & Relationships": 19055,
+});
+
+function getAppointmentPrice(service) {
+  return Object.hasOwn(APPOINTMENT_PRICES, service) ? APPOINTMENT_PRICES[service] : null;
+}
+
+function getSquareApiError(result) {
+  const errors = Array.isArray(result?.errors) ? result.errors : [];
+  return errors.map((error) => `${error.code || "SQUARE_ERROR"}: ${error.detail || error.category || "Request failed"}`).join("; ");
+}
+
+async function getSquareIdempotencyKey(scope, value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${scope}:${value}`));
+  const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${scope}-${hash.slice(0, 32)}`;
+}
+
+function formatUsdAmount(amountCents) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(amountCents / 100);
+}
+
+async function createSquarePaymentLink(env, appointment) {
+  if (!env.SQUARE_ACCESS_TOKEN || !env.SQUARE_LOCATION_ID) {
+    throw new Error("Square production payments are not configured. Set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.");
+  }
+  const price = getAppointmentPrice(appointment.service);
+  if (!Number.isInteger(price) || price <= 0) {
+    throw new Error("This appointment does not have a payable service price.");
+  }
+  const origin = env.PUBLIC_SITE_URL || "https://lindam.klutchplay.com";
+  const response = await fetch(`${SQUARE_API_BASE_URL}/v2/online-checkout/payment-links`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+      "Square-Version": SQUARE_API_VERSION,
+    },
+    body: JSON.stringify({
+      idempotency_key: await getSquareIdempotencyKey("appt", appointment.id),
+      order: {
+        location_id: env.SQUARE_LOCATION_ID,
+        line_items: [{
+          name: "Appointment payment",
+          quantity: "1",
+          base_price_money: { amount: price, currency: "USD" },
+        }],
+      },
+      checkout_options: {
+        redirect_url: `${origin}/appointments.html?payment=return`,
+      },
+      ...(appointment.clientEmail ? { pre_populated_data: { buyer_email: appointment.clientEmail } } : {}),
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.payment_link?.url || !result.payment_link?.order_id) {
+    console.error("Square payment link creation failed:", JSON.stringify(result.errors || result));
+    throw new Error("Square could not create the payment link. Check the payment setup and try again.");
+  }
+  return {
+    paymentLinkId: result.payment_link.id,
+    paymentUrl: result.payment_link.url,
+    orderId: result.payment_link.order_id,
+    amount: price,
+    currency: "USD",
+  };
+}
+
+async function verifySquareWebhookSignature(request, env, rawBody) {
+  const signature = request.headers.get("x-square-hmacsha256-signature") || "";
+  const notificationUrl = env.SQUARE_WEBHOOK_NOTIFICATION_URL || "";
+  if (!env.SQUARE_WEBHOOK_SIGNATURE_KEY || !notificationUrl || !signature) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(env.SQUARE_WEBHOOK_SIGNATURE_KEY),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(notificationUrl + rawBody),
+  );
+  const expected = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  return constantTimeEqual(expected, signature);
+}
 
 function normalizeVideoRoomCode(value) {
   return typeof value === "string" ? value.toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
@@ -1005,8 +1102,12 @@ export class ChatRoom extends DurableObject {
       const appointments = (await this.ctx.storage.get("appointments")) || [];
       if (request.method === "GET") {
         const userAppointments = appointments.filter((appointment) => appointment.clientUserId === client.id)
-          .map(({ id, clientName, date, time, timeZone, duration, service, status, roomCode }) =>
-            ({ id, clientName, date, time, timeZone, duration, service, status, roomCode })
+          .map(({ id, clientName, date, time, timeZone, duration, service, status, roomCode,
+            paymentRequired, paymentAmount, paymentCurrency, paymentStatus, squarePaymentUrl,
+            paymentReceiptUrl, refundStatus, paymentHistory }) =>
+            ({ id, clientName, date, time, timeZone, duration, service, status, roomCode,
+              paymentRequired, paymentAmount, paymentCurrency, paymentStatus, squarePaymentUrl,
+              paymentReceiptUrl, refundStatus, paymentHistory })
           );
         return new Response(JSON.stringify({ appointments: userAppointments }), { headers: jsonHeaders });
       }
@@ -1016,6 +1117,7 @@ export class ChatRoom extends DurableObject {
           ? body.service
           : "";
         const duration = service === "Free 15-Minute Consultation" ? 15 : 50;
+        const price = getAppointmentPrice(service);
         const appointment = {
           id: crypto.randomUUID(),
           clientUserId: client.id,
@@ -1030,6 +1132,11 @@ export class ChatRoom extends DurableObject {
           roomCode: createUniqueVideoRoomCode(appointments),
           reminderEnabled: true,
           status: "Awaiting Confirmation",
+          paymentRequired: price > 0,
+          paymentAmount: price,
+          paymentCurrency: "USD",
+          paymentStatus: price > 0 ? "unpaid" : "not_required",
+          paymentHistory: [],
           notes: "",
         };
         if (!service) {
@@ -1057,6 +1164,10 @@ export class ChatRoom extends DurableObject {
             duration: appointment.duration,
             service: appointment.service,
             status: appointment.status,
+            paymentRequired: appointment.paymentRequired,
+            paymentAmount: appointment.paymentAmount,
+            paymentCurrency: appointment.paymentCurrency,
+            paymentStatus: appointment.paymentStatus,
           },
           host: { displayName: host.displayName, email: host.email },
         }), { status: 201, headers: jsonHeaders });
@@ -1355,7 +1466,7 @@ export class ChatRoom extends DurableObject {
       const appointments = (await this.ctx.storage.get("appointments")) || [];
       const matchingAppointments = appointments.filter((appointment) =>
         normalizeVideoRoomCode(appointment.roomCode) === roomCode &&
-        !["Completed", "Reschedule Requested"].includes(appointment.status)
+        !["Completed", "Reschedule Requested", "Canceled"].includes(appointment.status)
       );
       if (matchingAppointments.length !== 1) {
         return new Response(JSON.stringify({
@@ -1368,6 +1479,151 @@ export class ChatRoom extends DurableObject {
         });
       }
       return new Response(JSON.stringify({ ok: true }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/square/payment-link" && request.method === "POST") {
+      const body = await request.json();
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const appointment = appointments.find((item) => item.id === body.appointmentId);
+      if (!appointment) {
+        return new Response(JSON.stringify({ error: "Appointment not found." }), { status: 404, headers: jsonHeaders });
+      }
+      if (appointment.paymentStatus === "completed" || appointment.paymentStatus === "refunded") {
+        return new Response(JSON.stringify({ error: "This appointment already has a completed payment." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      if (typeof body.paymentUrl !== "string" || typeof body.orderId !== "string" ||
+        !Number.isInteger(body.amount) || body.amount <= 0) {
+        return new Response(JSON.stringify({ error: "Square payment link details are invalid." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const expectedAmount = getAppointmentPrice(appointment.service);
+      if (!Number.isInteger(expectedAmount) || expectedAmount <= 0 ||
+        body.amount !== expectedAmount || body.currency !== "USD" ||
+        !body.paymentUrl.startsWith("https://square.link/")) {
+        return new Response(JSON.stringify({ error: "Square payment link details do not match the appointment price." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      appointment.squarePaymentLinkId = body.paymentLinkId;
+      appointment.squarePaymentUrl = body.paymentUrl;
+      appointment.squareOrderId = body.orderId;
+      appointment.paymentRequired = true;
+      appointment.paymentAmount = body.amount;
+      appointment.paymentCurrency = body.currency || "USD";
+      appointment.paymentStatus = appointment.paymentStatus === "completed" ? "completed" : "pending";
+      appointment.paymentLinkCreatedAt = new Date().toISOString();
+      appointment.paymentHistory ||= [];
+      appointment.paymentHistory.push({
+        status: "payment_link_created",
+        amount: body.amount,
+        timestamp: appointment.paymentLinkCreatedAt,
+      });
+      appointment.paymentHistory = appointment.paymentHistory.slice(-20);
+      await this.ctx.storage.put("appointments", appointments);
+      return new Response(JSON.stringify({ ok: true, appointment }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/square/refund" && request.method === "POST") {
+      const body = await request.json();
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      const appointment = appointments.find((item) => item.id === body.appointmentId);
+      if (!appointment) {
+        return new Response(JSON.stringify({ error: "Appointment not found." }), { status: 404, headers: jsonHeaders });
+      }
+      if (typeof body.refundId !== "string" || !body.refundId || typeof body.status !== "string") {
+        return new Response(JSON.stringify({ error: "Square refund details are invalid." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      appointment.squareRefundId = body.refundId;
+      appointment.refundStatus = body.status.toLowerCase();
+      appointment.refundRequestedAt = new Date().toISOString();
+      appointment.paymentHistory ||= [];
+      appointment.paymentHistory.push({
+        status: `refund_${appointment.refundStatus}`,
+        amount: Number.isInteger(body.amount) ? body.amount : appointment.paymentAmount,
+        timestamp: appointment.refundRequestedAt,
+      });
+      appointment.paymentHistory = appointment.paymentHistory.slice(-20);
+      await this.ctx.storage.put("appointments", appointments);
+      return new Response(JSON.stringify({ ok: true, appointment }), { headers: jsonHeaders });
+    }
+
+    if (url.pathname === "/internal/square/webhook" && request.method === "POST") {
+      const body = await request.json();
+      const eventId = typeof body.eventId === "string" ? body.eventId : "";
+      if (!eventId || eventId.length > 200) {
+        return new Response(JSON.stringify({ error: "Square event ID is invalid." }), { status: 400, headers: jsonHeaders });
+      }
+      const eventKey = `square:webhook:event:${eventId}`;
+      if (await this.ctx.storage.get(eventKey)) {
+        return new Response(JSON.stringify({ ok: true, duplicate: true }), { headers: jsonHeaders });
+      }
+      const appointments = (await this.ctx.storage.get("appointments")) || [];
+      let appointment;
+      let historyEvent;
+      if (["payment.created", "payment.updated"].includes(body.eventType)) {
+        const payment = body.payment;
+        if (!payment || typeof payment !== "object") {
+          return new Response(JSON.stringify({ error: "Square payment event is invalid." }), { status: 400, headers: jsonHeaders });
+        }
+        appointment = appointments.find((item) =>
+          (payment.order_id && item.squareOrderId === payment.order_id) ||
+          (payment.id && item.squarePaymentId === payment.id)
+        );
+        if (appointment) {
+          appointment.squarePaymentId = payment.id || appointment.squarePaymentId;
+          const status = typeof payment.status === "string" ? payment.status.toLowerCase() : "unknown";
+          appointment.paymentStatus = status === "completed" ? "completed"
+            : status === "failed" || status === "canceled" ? status
+            : appointment.paymentStatus || "pending";
+          if (Number.isInteger(payment.amount_money?.amount)) {
+            appointment.paymentAmount = payment.amount_money.amount;
+          }
+          appointment.paymentCurrency = payment.amount_money?.currency || appointment.paymentCurrency || "USD";
+          if (typeof payment.receipt_url === "string") appointment.paymentReceiptUrl = payment.receipt_url;
+          historyEvent = {
+            status: `payment_${status}`,
+            amount: appointment.paymentAmount,
+            timestamp: typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString(),
+          };
+        }
+      } else if (["refund.created", "refund.updated"].includes(body.eventType)) {
+        const refund = body.refund;
+        if (!refund || typeof refund !== "object") {
+          return new Response(JSON.stringify({ error: "Square refund event is invalid." }), { status: 400, headers: jsonHeaders });
+        }
+        appointment = appointments.find((item) => refund.payment_id && item.squarePaymentId === refund.payment_id);
+        if (appointment) {
+          const status = typeof refund.status === "string" ? refund.status.toLowerCase() : "unknown";
+          appointment.squareRefundId = refund.id || appointment.squareRefundId;
+          appointment.refundStatus = status;
+          if (status === "completed") appointment.paymentStatus = "refunded";
+          historyEvent = {
+            status: `refund_${status}`,
+            amount: Number.isInteger(refund.amount_money?.amount) ? refund.amount_money.amount : appointment.paymentAmount,
+            timestamp: typeof body.createdAt === "string" ? body.createdAt : new Date().toISOString(),
+          };
+        }
+      } else {
+        await this.ctx.storage.put(eventKey, { processedAt: Date.now() });
+        return new Response(JSON.stringify({ ok: true, ignored: true }), { headers: jsonHeaders });
+      }
+      if (appointment && historyEvent) {
+        appointment.paymentHistory ||= [];
+        appointment.paymentHistory.push(historyEvent);
+        appointment.paymentHistory = appointment.paymentHistory.slice(-20);
+        await this.ctx.storage.put("appointments", appointments);
+      }
+      await this.ctx.storage.put(eventKey, { processedAt: Date.now() });
+      return new Response(JSON.stringify({ ok: true, matched: Boolean(appointment) }), { headers: jsonHeaders });
     }
 
     if (url.pathname === "/internal/reminders/claim" && request.method === "POST") {
@@ -1385,7 +1641,7 @@ export class ChatRoom extends DurableObject {
         const claimsToSend = [];
         for (const appointment of appointments) {
           if (appointment.reminderEnabled === false ||
-            ["Completed", "Reschedule Requested"].includes(appointment.status) ||
+            ["Completed", "Reschedule Requested", "Canceled"].includes(appointment.status) ||
             appointment.reminderClaim?.expiresAt > now) continue;
           const startsAt = getAppointmentStartTime(appointment);
           if (startsAt === null || startsAt <= now || startsAt - 30 * 60 * 1000 > now) continue;
@@ -1971,7 +2227,7 @@ function getAppointmentAvailabilityError(appointment, schedule, appointments, ig
   )) return "That time is outside the selected staff member's availability.";
   const conflict = appointments.some((item) => {
     if (item.id === ignoredId || item.hostUserId !== appointment.hostUserId || item.date !== appointment.date ||
-      ["Completed", "Reschedule Requested"].includes(item.status) ||
+      ["Completed", "Reschedule Requested", "Canceled"].includes(item.status) ||
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time || "")) return false;
     const otherStart = Number(item.time.slice(0, 2)) * 60 + Number(item.time.slice(3));
     const otherEnd = otherStart + Number(item.duration || 50);
@@ -2213,6 +2469,53 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const jsonHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
+
+    if (url.pathname === "/api/square/webhook" && request.method === "POST") {
+      const rawBody = await request.text();
+      if (!await verifySquareWebhookSignature(request, env, rawBody)) {
+        return new Response(JSON.stringify({ error: "Invalid Square webhook signature." }), {
+          status: 401,
+          headers: jsonHeaders,
+        });
+      }
+      let event;
+      try {
+        event = JSON.parse(rawBody);
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid Square webhook event." }), {
+          status: 400,
+          headers: jsonHeaders,
+        });
+      }
+      const eventType = event.type;
+      const eventObject = event.data?.object || {};
+      const payment = eventObject.payment;
+      const refund = eventObject.refund;
+      const forwarded = await getAdminStoreStub(env).fetch(new Request("https://internal/internal/square/webhook", {
+        method: "POST",
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          eventId: event.event_id,
+          eventType,
+          createdAt: event.created_at,
+          payment: payment && {
+            id: payment.id,
+            order_id: payment.order_id,
+            status: payment.status,
+            amount_money: payment.amount_money,
+            receipt_url: payment.receipt_url,
+          },
+          refund: refund && {
+            id: refund.id,
+            payment_id: refund.payment_id,
+            status: refund.status,
+            amount_money: refund.amount_money,
+          },
+        }),
+      }));
+      const forwardedBody = await forwarded.text();
+      return new Response(forwardedBody, { status: forwarded.status, headers: jsonHeaders });
+    }
 
     if (url.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
       const origin = request.headers.get("Origin");
@@ -2507,6 +2810,12 @@ export default {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return new Response(JSON.stringify({ error: "Invalid appointment request." }), { status: 400, headers: jsonHeaders });
       }
+      if (getAppointmentPrice(body.service) > 0 &&
+        (!env.SQUARE_ACCESS_TOKEN || !env.SQUARE_LOCATION_ID)) {
+        return new Response(JSON.stringify({
+          error: "Paid appointment requests are temporarily unavailable until Square production payments are configured. The free consultation is still available.",
+        }), { status: 503, headers: jsonHeaders });
+      }
       const booking = await stub.fetch(new Request("https://internal/internal/client/appointments", {
         method: "POST",
         headers: jsonHeaders,
@@ -2519,6 +2828,27 @@ export default {
           headers: jsonHeaders,
         });
       }
+      let paymentUrl = "";
+      let paymentError = "";
+      if (result.appointment.paymentRequired) {
+        try {
+          const paymentLink = await createSquarePaymentLink(env, result.appointment);
+          const stored = await stub.fetch(new Request("https://internal/internal/square/payment-link", {
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({
+              appointmentId: result.appointment.id,
+              ...paymentLink,
+            }),
+          }));
+          const storedResult = await stored.json();
+          if (!stored.ok) throw new Error(storedResult.error || "Could not save payment details.");
+          paymentUrl = paymentLink.paymentUrl;
+        } catch (error) {
+          console.error("Square checkout setup failed for appointment request:", error);
+          paymentError = "Your appointment time is reserved, but checkout could not be prepared. Contact the practice to complete payment.";
+        }
+      }
       let notificationError = "";
       if (!env.EMAIL || !env.SENDER_EMAIL) {
         notificationError = "The request was saved, but email notifications are not configured.";
@@ -2527,7 +2857,7 @@ export default {
           {
             to: client.email,
             subject: "Appointment request received",
-            text: `Hello ${client.displayName},\n\nYour appointment request has been received and is awaiting confirmation from the practice.\n\nRequested appointment: ${result.appointment.date} at ${result.appointment.time} Eastern Time\nService: ${result.appointment.service}\n\nThe practice will follow up after reviewing your request.`,
+            text: `Hello ${client.displayName},\n\nYour appointment request has been received and is awaiting confirmation from the practice.\n\nRequested appointment: ${result.appointment.date} at ${result.appointment.time} Eastern Time\nService: ${result.appointment.service}${result.appointment.paymentRequired ? `\nAmount due: ${formatUsdAmount(result.appointment.paymentAmount)}${paymentUrl ? `\nComplete payment securely: ${paymentUrl}` : ""}` : ""}\n\nThe practice will follow up after reviewing your request.`,
           },
           {
             to: result.host.email,
@@ -2549,8 +2879,122 @@ export default {
       return new Response(JSON.stringify({
         ok: true,
         appointment: result.appointment,
+        ...(paymentUrl ? { paymentUrl } : {}),
+        ...(paymentError ? { paymentError } : {}),
         ...(notificationError ? { notificationError } : {}),
       }), { status: booking.status, headers: jsonHeaders });
+    }
+
+    if (url.pathname.startsWith("/api/appointments/") && url.pathname.endsWith("/payment-link") &&
+      request.method === "POST") {
+      const user = await isAuthorized(request, env);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized." }), { status: 401, headers: jsonHeaders });
+      const appointmentId = decodeURIComponent(url.pathname.slice("/api/appointments/".length, -"/payment-link".length));
+      const stub = getAdminStoreStub(env);
+      const appointmentsResponse = await stub.fetch(new Request("https://internal/internal/appointments", {
+        headers: jsonHeaders,
+      }));
+      const { appointments = [] } = await appointmentsResponse.json();
+      const appointment = appointments.find((item) => item.id === appointmentId);
+      if (!appointment) return new Response(JSON.stringify({ error: "Appointment not found." }), { status: 404, headers: jsonHeaders });
+      if (getAppointmentPrice(appointment.service) <= 0 ||
+        appointment.paymentStatus === "completed" || appointment.paymentStatus === "refunded") {
+        return new Response(JSON.stringify({ error: "This appointment does not need a payment link." }), { status: 409, headers: jsonHeaders });
+      }
+      if (appointment.squarePaymentUrl && appointment.paymentStatus === "pending") {
+        return new Response(JSON.stringify({ paymentUrl: appointment.squarePaymentUrl }), { headers: jsonHeaders });
+      }
+      try {
+        const paymentLink = await createSquarePaymentLink(env, appointment);
+        const saved = await stub.fetch(new Request("https://internal/internal/square/payment-link", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({ appointmentId, ...paymentLink }),
+        }));
+        const savedBody = await saved.json();
+        if (!saved.ok) return new Response(JSON.stringify(savedBody), { status: saved.status, headers: jsonHeaders });
+        return new Response(JSON.stringify({ paymentUrl: paymentLink.paymentUrl }), { headers: jsonHeaders });
+      } catch (error) {
+        console.error("Square payment link retry failed:", error);
+        return new Response(JSON.stringify({ error: "Could not create the Square payment link. Check Square configuration and retry." }), {
+          status: 502,
+          headers: jsonHeaders,
+        });
+      }
+    }
+
+    if (url.pathname.startsWith("/api/appointments/") && url.pathname.endsWith("/refund") &&
+      request.method === "POST") {
+      const user = await isAuthorized(request, env);
+      if (!user) return new Response(JSON.stringify({ error: "Unauthorized." }), { status: 401, headers: jsonHeaders });
+      if (!env.SQUARE_ACCESS_TOKEN) return new Response(JSON.stringify({ error: "Square production payments are not configured." }), { status: 503, headers: jsonHeaders });
+      const appointmentId = decodeURIComponent(url.pathname.slice("/api/appointments/".length, -"/refund".length));
+      const stub = getAdminStoreStub(env);
+      const appointmentsResponse = await stub.fetch(new Request("https://internal/internal/appointments", {
+        headers: jsonHeaders,
+      }));
+      const { appointments = [] } = await appointmentsResponse.json();
+      const appointment = appointments.find((item) => item.id === appointmentId);
+      if (!appointment) return new Response(JSON.stringify({ error: "Appointment not found." }), { status: 404, headers: jsonHeaders });
+      const startTime = getAppointmentStartTime(appointment);
+      if (appointment.status !== "Canceled" || !startTime || startTime - Date.now() < 24 * 60 * 60 * 1000) {
+        return new Response(JSON.stringify({ error: "A full refund is available only when cancellation is at least 24 hours before the appointment." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      if (appointment.paymentStatus !== "completed" || !appointment.squarePaymentId ||
+        !Number.isInteger(appointment.paymentAmount) || appointment.paymentAmount <= 0) {
+        return new Response(JSON.stringify({ error: "This appointment has no completed Square payment to refund." }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
+      try {
+        const response = await fetch(`${SQUARE_API_BASE_URL}/v2/refunds`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+            "Square-Version": SQUARE_API_VERSION,
+          },
+          body: JSON.stringify({
+            idempotency_key: await getSquareIdempotencyKey("refund", appointment.squarePaymentId),
+            payment_id: appointment.squarePaymentId,
+            amount_money: { amount: appointment.paymentAmount, currency: "USD" },
+            reason: "Appointment canceled at least 24 hours in advance",
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+        const result = await response.json();
+        const refund = result.refund;
+        if (!response.ok || !refund?.id) {
+          console.error("Square refund failed:", getSquareApiError(result) || JSON.stringify(result.errors || result));
+          return new Response(JSON.stringify({ error: "Square could not issue the refund. Check the payment and try again." }), {
+            status: 502,
+            headers: jsonHeaders,
+          });
+        }
+        const saved = await stub.fetch(new Request("https://internal/internal/square/refund", {
+          method: "POST",
+          headers: jsonHeaders,
+          body: JSON.stringify({
+            appointmentId,
+            refundId: refund.id,
+            status: refund.status || "pending",
+            amount: refund.amount_money?.amount,
+          }),
+        }));
+        const savedBody = await saved.json();
+        if (!saved.ok) return new Response(JSON.stringify(savedBody), { status: saved.status, headers: jsonHeaders });
+        return new Response(JSON.stringify({ ok: true, refundStatus: refund.status || "pending" }), { headers: jsonHeaders });
+      } catch (error) {
+        console.error("Square refund request failed:", error);
+        return new Response(JSON.stringify({ error: "Could not contact Square to issue the refund." }), {
+          status: 502,
+          headers: jsonHeaders,
+        });
+      }
     }
 
     if (url.pathname === "/api/verify-mfa" && request.method === "POST") {

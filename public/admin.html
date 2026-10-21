@@ -734,6 +734,7 @@
                             <option value="Awaiting Confirmation">Awaiting Confirmation</option>
                             <option value="Confirmed">Confirmed</option>
                             <option value="Reschedule Requested">Reschedule Requested</option>
+                            <option value="Canceled">Canceled</option>
                             <option value="Completed">Completed</option>
                         </select>
                     </div>
@@ -2082,6 +2083,9 @@
             if (st === 'Confirmed') {
                 return `<span class="text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">Confirmed ✓</span>`;
             }
+            if (st === 'Canceled') {
+                return `<span class="text-[11px] font-semibold bg-sand-100 text-sage-700 border border-sand-300 px-2.5 py-0.5 rounded-full">Canceled</span>`;
+            }
             if (st === 'Reschedule Requested') {
                 return `<span class="text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-300 px-2.5 py-0.5 rounded-full">Reschedule Requested</span>`;
             }
@@ -2158,6 +2162,15 @@
             }
         }
 
+        function getAppointmentPaymentAmount(appointment) {
+            const prices = {
+                'Individual Psychotherapy': 15450,
+                'Anxiety & Burnout Recovery': 15450,
+                'Life Transitions & Relationships': 19055,
+            };
+            return Number.isInteger(appointment.paymentAmount) ? appointment.paymentAmount : prices[appointment.service] || 0;
+        }
+
         function renderAppointmentsList() {
             const container = document.getElementById('appointments-list-container');
             const heading = document.getElementById('agenda-heading');
@@ -2207,6 +2220,18 @@
                         </div>
                     </div>
                     ${appt.notes ? `<p class="text-xs text-sage-600 italic bg-white p-2.5 rounded-xl border border-sand-200">${escapeHtml(appt.notes)}</p>` : ''}
+                    ${(appt.paymentRequired || getAppointmentPaymentAmount(appt) > 0) ? `
+                        <div class="rounded-xl border border-sand-200 bg-white p-3 text-sm">
+                            <p class="font-semibold text-sage-800">Payment · $${(getAppointmentPaymentAmount(appt) / 100).toFixed(2)} ${escapeHtml(appt.paymentCurrency || 'USD')} · ${escapeHtml(appt.paymentStatus || 'unpaid')}</p>
+                            ${appt.paymentReceiptUrl ? `<a href="${escapeHtml(appt.paymentReceiptUrl)}" target="_blank" rel="noopener noreferrer" class="text-sage-700 underline">View Square receipt</a>` : ''}
+                            ${appt.refundStatus ? `<p class="text-xs text-sage-600">Refund: ${escapeHtml(appt.refundStatus)}</p>` : ''}
+                            ${Array.isArray(appt.paymentHistory) && appt.paymentHistory.length ? `<p class="mt-1 text-xs text-sage-600">History: ${appt.paymentHistory.map((item) => `${escapeHtml(item.status)} (${escapeHtml(item.timestamp)})`).join(' · ')}</p>` : ''}
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                ${appt.paymentStatus !== 'completed' && appt.paymentStatus !== 'refunded' ? `<button onclick="createAppointmentPaymentLink('${appt.id}')" class="rounded-lg bg-sage-700 px-3 py-1.5 text-xs font-semibold text-white">Create / copy payment link</button>` : ''}
+                                ${appt.paymentStatus === 'completed' && appt.status === 'Canceled' ? `<button onclick="refundAppointmentPayment('${appt.id}')" class="rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-semibold text-sage-800">Issue eligible full refund</button>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
                     <div class="pt-2 border-t border-sand-200 flex flex-wrap items-center justify-between gap-2">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <button onclick="launchAppointmentVideo('${appt.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
@@ -2359,7 +2384,7 @@
                     if (!isValidEasternLocalTime(date, time) || !isValidEasternLocalTime(date, endTime)) continue;
                     const conflict = appointments.some((appointment) => {
                         if (appointment.id === currentEditingAppointmentId || appointment.hostUserId !== hostId ||
-                            appointment.date !== date || ['Completed', 'Reschedule Requested'].includes(appointment.status) ||
+                            appointment.date !== date || ['Completed', 'Reschedule Requested', 'Canceled'].includes(appointment.status) ||
                             !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time || '')) return false;
                         const otherStart = toMinutes(appointment.time);
                         return start < otherStart + Number(appointment.duration || 50) && otherStart < start + duration;
@@ -2615,7 +2640,7 @@
             const today = `${parts.year}-${parts.month}-${parts.day}`;
             const nowMinutes = Number(parts.hour) * 60 + Number(parts.minute);
             return appointments.filter((appointment) => {
-                if (!appointment.roomCode || ['Completed', 'Reschedule Requested'].includes(appointment.status) ||
+                if (!appointment.roomCode || ['Completed', 'Reschedule Requested', 'Canceled'].includes(appointment.status) ||
                     !/^\d{4}-\d{2}-\d{2}$/.test(appointment.date) ||
                     !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time || '')) return false;
                 if (appointment.date > today) return true;
@@ -2984,6 +3009,35 @@
                     </td>
                 </tr>
             `).join('');
+        }
+
+        async function createAppointmentPaymentLink(id) {
+            try {
+                const response = await fetch(`/api/appointments/${encodeURIComponent(id)}/payment-link`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not create the payment link.');
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(data.paymentUrl);
+                    showPortalToast('Square payment link copied to clipboard.');
+                } else {
+                    window.prompt('Copy this Square payment link:', data.paymentUrl);
+                }
+            } catch (error) {
+                showPortalToast(error.message || 'Could not create the payment link.');
+            }
+        }
+
+        async function refundAppointmentPayment(id) {
+            if (!confirm('Issue a full refund? This is available only for cancellations at least 24 hours before the appointment.')) return;
+            try {
+                const response = await fetch(`/api/appointments/${encodeURIComponent(id)}/refund`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Could not issue the refund.');
+                showPortalToast(`Square refund requested (${data.refundStatus}).`);
+                await loadPortalData();
+            } catch (error) {
+                showPortalToast(error.message || 'Could not issue the refund.');
+            }
         }
 
         function openManualHoursModal() {

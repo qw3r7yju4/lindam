@@ -21,6 +21,11 @@
 	// npx wrangler secret put ADMIN_BOOTSTRAP_PASSWORD
 	// Optionally set ADMIN_BOOTSTRAP_EMAIL for account contact details.
 	// npx wrangler secret put ADMIN_BOOTSTRAP_EMAIL
+	// Square production payments stay unavailable until Square credentials are configured:
+	// npx wrangler secret put SQUARE_ACCESS_TOKEN
+	// npx wrangler secret put SQUARE_WEBHOOK_SIGNATURE_KEY
+	// Set SQUARE_LOCATION_ID as a Worker variable in Cloudflare.
+	// SQUARE_WEBHOOK_NOTIFICATION_URL must exactly match the webhook URL in Square.
 	// MFA is optional and off by default. Email MFA requires the EMAIL binding and a working SENDER_EMAIL.
 	"send_email": [
 		{
@@ -49,7 +54,9 @@
 	},
 	"vars": {
 		"FORWARD_TO_EMAIL": "klucinaken@gmail.com",
-		"SENDER_EMAIL": "lindasappointments@klutchplay.com"
+		"SENDER_EMAIL": "lindasappointments@klutchplay.com",
+		"PUBLIC_SITE_URL": "https://lindam.klutchplay.com",
+		"SQUARE_WEBHOOK_NOTIFICATION_URL": "https://lindam.klutchplay.com/api/square/webhook"
 	},
 	"routes": [
 		{
