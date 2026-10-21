@@ -1345,7 +1345,8 @@ export class ChatRoom extends DurableObject {
         const users = (await transaction.get("auth:users")) || [];
         const claimsToSend = [];
         for (const appointment of appointments) {
-          if (appointment.reminderEnabled === false || appointment.status === "Reschedule Requested" ||
+          if (appointment.reminderEnabled === false ||
+            ["Completed", "Reschedule Requested"].includes(appointment.status) ||
             appointment.reminderClaim?.expiresAt > now) continue;
           const startsAt = getAppointmentStartTime(appointment);
           if (startsAt === null || startsAt <= now || startsAt - 30 * 60 * 1000 > now) continue;
@@ -1484,9 +1485,16 @@ export class ChatRoom extends DurableObject {
       }
       if (request.method === "DELETE") {
         const id = url.searchParams.get("id");
-        const filtered = appointments.filter((a) => a.id !== id);
-        await this.ctx.storage.put("appointments", filtered);
-        return new Response(JSON.stringify({ appointments: filtered }), { headers: jsonHeaders });
+        const appointment = appointments.find((item) => item.id === id);
+        if (!appointment) {
+          return new Response(JSON.stringify({ error: "Appointment not found." }), { status: 404, headers: jsonHeaders });
+        }
+        appointment.status = "Completed";
+        appointment.completedAt ||= new Date().toISOString();
+        appointment.reminderEnabled = false;
+        delete appointment.reminderClaim;
+        await this.ctx.storage.put("appointments", appointments);
+        return new Response(JSON.stringify({ appointments }), { headers: jsonHeaders });
       }
     }
 
@@ -1899,7 +1907,8 @@ function getAppointmentAvailabilityError(appointment, schedule, appointments, ig
   )) return "That time is outside the selected staff member's availability.";
   const conflict = appointments.some((item) => {
     if (item.id === ignoredId || item.hostUserId !== appointment.hostUserId || item.date !== appointment.date ||
-      item.status === "Reschedule Requested" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time || "")) return false;
+      ["Completed", "Reschedule Requested"].includes(item.status) ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time || "")) return false;
     const otherStart = Number(item.time.slice(0, 2)) * 60 + Number(item.time.slice(3));
     const otherEnd = otherStart + Number(item.duration || 50);
     return start < otherEnd && otherStart < end;

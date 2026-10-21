@@ -248,9 +248,9 @@
             <section id="portal-tab-calendar" class="space-y-8">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-sand-200 shadow-sm">
                     <div>
-                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Appointment Schedule &amp; Confirmations</h2>
+                        <h2 class="font-serif text-2xl sm:text-3xl font-semibold text-sage-900">Calendar, Visit Log &amp; Confirmations</h2>
                         <p class="text-xs sm:text-sm text-sage-600 mt-1">
-                            Schedule sessions, send confirmation emails to clients, track live confirmation status, and export/import <code>.ics</code> files.
+                            Schedule sessions, retain completed visits in the calendar history, track confirmation status, and export/import <code>.ics</code> files.
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2.5">
@@ -311,7 +311,7 @@
                     <div class="lg:col-span-5 bg-white rounded-3xl border border-sand-200 shadow-sm p-6 space-y-4">
                         <div class="flex items-center justify-between border-b border-sand-200 pb-3">
                             <div>
-                                <h3 id="agenda-heading" class="font-serif text-xl font-semibold text-sage-900">Upcoming Appointments</h3>
+                                <h3 id="agenda-heading" class="font-serif text-xl font-semibold text-sage-900">Appointments &amp; Visit Log</h3>
                                 <p id="agenda-subheading" class="text-xs text-sage-600">Click any date on the calendar to filter</p>
                             </div>
                             <button onclick="clearDateFilter()" id="btn-show-all-dates" class="hidden text-xs font-semibold text-sage-600 hover:text-sage-900 underline">
@@ -726,6 +726,7 @@
                             <option value="Awaiting Confirmation">Awaiting Confirmation</option>
                             <option value="Confirmed">Confirmed</option>
                             <option value="Reschedule Requested">Reschedule Requested</option>
+                            <option value="Completed">Completed</option>
                         </select>
                     </div>
                 </div>
@@ -1754,17 +1755,6 @@
             localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
         }
 
-        async function removeAppointmentById(id) {
-            appointments = appointments.filter((a) => a.id !== id);
-            localStorage.setItem(LOCAL_APPTS_KEY, JSON.stringify(appointments));
-            try {
-                await fetch(`/api/appointments?id=${encodeURIComponent(id)}`, {
-                    method: 'DELETE',
-                    headers: {}
-                });
-            } catch {}
-        }
-
         async function persistHoursEntry(entry) {
             const idx = hoursLogs.findIndex((h) => h.id === entry.id);
             if (idx >= 0) hoursLogs[idx] = entry;
@@ -2090,6 +2080,9 @@
             if (st === 'Awaiting Confirmation') {
                 return `<span class="text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 px-2.5 py-0.5 rounded-full">Email Sent • Awaiting Reply</span>`;
             }
+            if (st === 'Completed') {
+                return `<span class="text-[11px] font-semibold bg-sage-100 text-sage-800 border border-sage-300 px-2.5 py-0.5 rounded-full">Visit Logged ✓</span>`;
+            }
             return `<span class="text-[11px] font-semibold bg-sand-200 text-sage-800 px-2.5 py-0.5 rounded-full">Pending</span>`;
         }
 
@@ -2171,8 +2164,8 @@
                 subheading.textContent = `${list.length} scheduled session(s)`;
                 showAllBtn.classList.remove('hidden');
             } else {
-                heading.textContent = "All Scheduled Appointments";
-                subheading.textContent = `${list.length} total session(s) scheduled`;
+                heading.textContent = "Appointments & Visit Log";
+                subheading.textContent = `${list.length} scheduled or completed visit(s)`;
                 showAllBtn.classList.add('hidden');
             }
 
@@ -2223,7 +2216,7 @@
                         </div>
                         <div class="flex items-center gap-1.5">
                             <button onclick="openAppointmentModal('', '${appt.id}')" class="text-xs text-sage-600 hover:text-sage-900 px-2 py-1">Edit</button>
-                            <button onclick="deleteAppointment('${appt.id}')" class="text-xs text-rose-600 hover:text-rose-800 px-2 py-1">Delete</button>
+                            <button onclick="logAppointmentVisit('${appt.id}')" title="Mark this visit complete and retain it in the calendar and .ics history" class="text-xs text-sage-700 hover:text-sage-900 px-2 py-1">${appt.status === 'Completed' ? 'Visit Logged' : 'Log Visit'}</button>
                         </div>
                     </div>
                 </div>
@@ -2347,7 +2340,7 @@
                     if (!isValidEasternLocalTime(date, time) || !isValidEasternLocalTime(date, endTime)) continue;
                     const conflict = appointments.some((appointment) => {
                         if (appointment.id === currentEditingAppointmentId || appointment.hostUserId !== hostId ||
-                            appointment.date !== date || appointment.status === 'Reschedule Requested' ||
+                            appointment.date !== date || ['Completed', 'Reschedule Requested'].includes(appointment.status) ||
                             !/^([01]\d|2[0-3]):[0-5]\d$/.test(appointment.time || '')) return false;
                         const otherStart = toMinutes(appointment.time);
                         return start < otherStart + Number(appointment.duration || 50) && otherStart < start + duration;
@@ -2381,6 +2374,8 @@
             const shouldEmail = document.getElementById('appt-send-email-check').checked;
             const shouldSendReminder = document.getElementById('appt-send-reminder-check').checked;
             const statusVal = document.getElementById('appt-status').value || 'Pending';
+            const existingAppointment = appointments.find((item) => item.id === id);
+            const isCompleted = statusVal === 'Completed';
 
             const appointment = {
                 id,
@@ -2393,8 +2388,9 @@
                 service: document.getElementById('appt-service').value,
                 roomCode: document.getElementById('appt-room').value.trim().toUpperCase(),
                 hostUserId: document.getElementById('appt-host-staff').value,
-                reminderEnabled: shouldSendReminder,
+                reminderEnabled: isCompleted ? false : shouldSendReminder,
                 status: shouldEmail && statusVal === 'Pending' ? 'Awaiting Confirmation' : statusVal,
+                ...(isCompleted ? { completedAt: existingAppointment?.completedAt || new Date().toISOString() } : {}),
                 notes: document.getElementById('appt-notes').value.trim()
             };
 
@@ -2416,13 +2412,25 @@
             }
         }
 
-        async function deleteAppointment(id) {
-            if (!confirm("Remove this appointment from your calendar?")) return;
-            await removeAppointmentById(id);
+        async function logAppointmentVisit(id) {
+            const appointment = appointments.find((item) => item.id === id);
+            if (!appointment || appointment.status === 'Completed') return;
+            if (!confirm("Mark this visit complete? It will remain on the calendar and in future .ics exports as a visit log entry.")) return;
+            try {
+                await persistAppointment({
+                    ...appointment,
+                    status: 'Completed',
+                    completedAt: new Date().toISOString(),
+                    reminderEnabled: false
+                });
+            } catch (error) {
+                showPortalToast(error.message || 'Could not log the visit.');
+                return;
+            }
             renderCalendar();
             renderAppointmentsList();
             populateStudioAppointmentDropdown();
-            showPortalToast("Appointment deleted.");
+            showPortalToast("Visit marked complete and retained in the calendar.");
         }
 
         // =====================================================================
@@ -2451,7 +2459,7 @@
                 const dtStart = toICSDateTime(appt.date, appt.time, 0);
                 const dtEnd = toICSDateTime(appt.date, appt.time, Number(appt.duration) || 50);
                 const inviteUrl = `${window.location.origin}/index.html?room=${encodeURIComponent(appt.roomCode)}#telehealth`;
-                const desc = `Service: ${appt.service}\\nStatus: ${appt.status || 'Pending'}\\nRoom Code: ${appt.roomCode}\\nJoin Video Session: ${inviteUrl}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`;
+                const desc = `Service: ${appt.service}\\nStatus: ${appt.status || 'Pending'}${appt.completedAt ? '\\nVisit logged: ' + appt.completedAt : ''}\\nRoom Code: ${appt.roomCode}\\nJoin Video Session: ${inviteUrl}${appt.notes ? '\\nNotes: ' + appt.notes : ''}`;
 
                 lines.push(
                     "BEGIN:VEVENT",
@@ -2577,7 +2585,8 @@
         function populateStudioAppointmentDropdown() {
             const select = document.getElementById('portal-appt-select');
             if (!select) return;
-            const sorted = [...appointments].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+            const sorted = appointments.filter((appointment) => appointment.status !== 'Completed')
+                .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
             select.innerHTML = `<option value="">-- Select Scheduled Appointment or Enter Custom --</option>` +
                 sorted.map((a) => `<option value="${a.id}">${escapeHtml(a.date)} ${escapeHtml(a.time)} — ${escapeHtml(a.clientName)} (${escapeHtml(a.roomCode)}) [${escapeHtml(a.status || 'Pending')}]</option>`).join('');
         }
